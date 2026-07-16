@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: var(--font-poppins), sans-serif;
+
+  /* Color Palette (for light mode): #B1B2FF #AAC4FF #D2DAFF #EEF1FF */
+  --color-brand-light-primary: #B1B2FF;
+  --color-brand-light-secondary: #AAC4FF;
+  --color-brand-light-accent: #D2DAFF;
+  --color-brand-light-bg: #EEF1FF;
+
+  /* Color Palette (for dark mode): #635985 #443C68 #393053 #18122B */
+  --color-brand-dark-primary: #635985;
+  --color-brand-dark-secondary: #443C68;
+  --color-brand-dark-accent: #393053;
+  --color-brand-dark-bg: #18122B;
+}
+
+body {
+  font-family: var(--font-poppins), sans-serif;
+  background-color: #EEF1FF;
+  color: #18122B;
+}
+
+.dark body {
+  background-color: #18122B;
+  color: #EEF1FF;
+}
+
+/* Custom glassmorphism utilities */
+.glass-panel {
+  background: rgba(238, 241, 255, 0.65);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(177, 178, 255, 0.3);
+}
+
+.dark .glass-panel {
+  background: rgba(24, 18, 43, 0.65);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(99, 89, 133, 0.3);
+}
+
+.glass-nav {
+  background: rgba(238, 241, 255, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(177, 178, 255, 0.2);
+}
+
+.dark .glass-nav {
+  background: rgba(24, 18, 43, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(99, 89, 133, 0.2);
+}
