@@ -8,6 +8,7 @@ const userSchema = new mongoose.Schema({
 
 const resumeSchema = new mongoose.Schema({
 
+    fileName: { type: String, required: true },
     rawText: { type: String, required: true },
     author: {
         type: mongoose.Schema.Types.ObjectId,

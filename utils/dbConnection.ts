@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import dns from "node:dns";
 
-// Dynamically set public DNS servers to resolve MongoDB SRV records (fixes ECONNREFUSED/querySrv)
 try {
   dns.setServers(["1.1.1.1", "8.8.8.8"]);
 } catch (err) {

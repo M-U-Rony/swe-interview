@@ -23,6 +23,8 @@ We have successfully implemented the landing page, the unified Sign In / Sign Up
    - Built a server-protected dashboard route at [layout.tsx (dashboard)](file:///e:/web%20dev/localProjects/swe-interview/app/dashboard/layout.tsx) that checks cookie JWT verification.
    - Implemented [dashboardShell.tsx](file:///e:/web%20dev/localProjects/swe-interview/app/dashboard/dashboardShell.tsx) providing a collapsible navigation Sidebar and top Navbar with a dark mode toggler.
    - Built the main dashboard welcome screen in [page.tsx (dashboard)](file:///e:/web%20dev/localProjects/swe-interview/app/dashboard/page.tsx) and placeholder views for resumes, interview starter, and history pages.
+   - Redesigned the Resumes manager page at [page.tsx (resumes)](file:///e:/web%20dev/localProjects/swe-interview/app/dashboard/resumes/page.tsx) to be a Server Component. It queries the MongoDB `Resume` schema directly on page load using the cookies JWT `userId` session to retrieve the user's active resume filename.
+   - Built [resumesClient.tsx](file:///e:/web%20dev/localProjects/swe-interview/app/dashboard/resumes/resumesClient.tsx) as the client wrapper. It displays the active resume filename on the right-side card, dynamically updates the state on successful form posts, and shows "Resume not uploaded yet" if no file is present. Includes drag-and-drop zones and parse loaders.
    - Created [profileOptions.tsx](file:///e:/web%20dev/localProjects/swe-interview/components/profileOptions.tsx) slide-over settings panel displaying username, email, ID, and a mock settings modifier.
    - Hooked up routes `/signin`, `/signout` in the `app/` folder.
 
