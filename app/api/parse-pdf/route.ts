@@ -3,35 +3,20 @@ export const runtime = 'nodejs';
 import dbConnect from '@/utils/dbConnection';
 import { PDFParse } from 'pdf-parse';
 import { Resume } from '@/models/model';
-import { cookies } from "next/headers";
 import { NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
+import { getUserId } from '@/lib/auth';
 
 export async function POST(req: Request) {
 
-    const cookieStore = await cookies();
-    const sessionToken = cookieStore.get("session")?.value;
+    const userId = await getUserId();
 
-    if (!sessionToken) {
+    if (!userId) {
         return NextResponse.json({
             success: false,
             isAuthenticated: false,
-            message: "No session found"
+            message: "No session or invalid token"
         }, { status: 401 });
     }
-
-    let payload: any = null;
-    try {
-        payload = jwt.verify(sessionToken, process.env.JWT_SECRET!);
-    } catch (err) {
-        return NextResponse.json({
-            success: false,
-            isAuthenticated: false,
-            message: "Invalid or expired session"
-        }, { status: 401 });
-    }
-
-    const userId = payload.userId;
 
   await dbConnect();
   const formData = await req.formData();

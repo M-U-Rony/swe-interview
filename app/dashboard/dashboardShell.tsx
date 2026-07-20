@@ -11,6 +11,8 @@ interface DashboardShellProps {
     username: string;
     email: string;
     userId: string;
+    fullName?: string;
+    profileImage?: string | null;
   };
 }
 
@@ -19,7 +21,9 @@ export default function DashboardShell({ children, user }: DashboardShellProps) 
   const pathname = usePathname();
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-  const [profileOpen, setProfileOpen] = useState<boolean>(false);
+
+  const displayName = user.fullName || user.username;
+  const initials = displayName.substring(0, 2);
 
   // Sync theme with document element
   useEffect(() => {
@@ -135,18 +139,22 @@ export default function DashboardShell({ children, user }: DashboardShellProps) 
 
         {/* Sidebar Footer User Trigger */}
         <div className="p-4 border-t border-brand-light-primary/20 dark:border-brand-dark-primary/20 bg-brand-light-accent/10 dark:bg-brand-dark-bg/20">
-          <button
-            onClick={() => setProfileOpen(true)}
+          <Link
+            href="/dashboard/profile"
             className="w-full flex items-center space-x-3 p-2.5 rounded-xl hover:bg-brand-light-primary/20 dark:hover:bg-brand-dark-secondary/35 text-left transition-all"
           >
-            <div className="w-10 h-10 rounded-full bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg flex items-center justify-center font-bold text-lg uppercase shadow-sm">
-              {user.username.substring(0, 2)}
+            <div className="w-10 h-10 rounded-full bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg flex items-center justify-center font-bold text-lg uppercase shadow-sm overflow-hidden flex-shrink-0">
+              {user.profileImage ? (
+                <img src={user.profileImage} alt={displayName} className="w-full h-full object-cover" />
+              ) : (
+                initials
+              )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{user.username}</p>
+              <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{displayName}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</p>
             </div>
-          </button>
+          </Link>
         </div>
       </aside>
 
@@ -191,21 +199,25 @@ export default function DashboardShell({ children, user }: DashboardShellProps) 
             </nav>
 
             <div className="pt-4 border-t border-brand-light-primary/20 dark:border-brand-dark-primary/20">
-              <button
+              <Link
+                href="/dashboard/profile"
                 onClick={() => {
                   setSidebarOpen(false);
-                  setProfileOpen(true);
                 }}
                 className="w-full flex items-center space-x-3 p-2 rounded-xl hover:bg-brand-light-accent/40"
               >
-                <div className="w-9 h-9 rounded-full bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg flex items-center justify-center font-bold text-sm uppercase">
-                  {user.username.substring(0, 2)}
+                <div className="w-9 h-9 rounded-full bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg flex items-center justify-center font-bold text-sm uppercase overflow-hidden flex-shrink-0">
+                  {user.profileImage ? (
+                    <img src={user.profileImage} alt={displayName} className="w-full h-full object-cover" />
+                  ) : (
+                    initials
+                  )}
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{user.username}</p>
+                  <p className="text-xs font-bold text-gray-900 dark:text-white truncate">{displayName}</p>
                   <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
                 </div>
-              </button>
+              </Link>
             </div>
           </aside>
         </div>
@@ -231,7 +243,9 @@ export default function DashboardShell({ children, user }: DashboardShellProps) 
             {pathname === "/dashboard" && "Overview"}
             {pathname === "/dashboard/resumes" && "My Resumes"}
             {pathname === "/dashboard/interview" && "AI Practice Arena"}
+            {pathname === "/dashboard/interview/start" && "Live Interview"}
             {pathname === "/dashboard/history" && "Session History"}
+            {pathname === "/dashboard/profile" && "Profile Settings"}
           </h1>
 
           {/* Nav Actions */}
@@ -254,17 +268,21 @@ export default function DashboardShell({ children, user }: DashboardShellProps) 
             </button>
 
             {/* Profile trigger in Navbar (Desktop/Mobile) */}
-            <button
-              onClick={() => setProfileOpen(true)}
+            <Link
+              href="/dashboard/profile"
               className="flex items-center space-x-2 hover:opacity-85 focus:outline-none transition-all"
             >
-              <div className="w-8 h-8 rounded-full bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg flex items-center justify-center font-bold text-sm uppercase shadow-sm">
-                {user.username.substring(0, 2)}
+              <div className="w-8 h-8 rounded-full bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg flex items-center justify-center font-bold text-sm uppercase shadow-sm overflow-hidden flex-shrink-0">
+                {user.profileImage ? (
+                  <img src={user.profileImage} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
               </div>
               <span className="hidden sm:inline text-sm font-semibold text-gray-700 dark:text-gray-300">
-                {user.username}
+                {displayName}
               </span>
-            </button>
+            </Link>
           </div>
         </header>
 
@@ -273,14 +291,6 @@ export default function DashboardShell({ children, user }: DashboardShellProps) 
           {children}
         </main>
       </div>
-
-      {/* Side Slide-Over profile Options Panel */}
-      <ProfileOptions
-        isOpen={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        user={user}
-      />
-
     </div>
   );
 }

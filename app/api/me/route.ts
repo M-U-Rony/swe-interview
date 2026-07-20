@@ -1,30 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "interview-prep-ai-secret-default-key-98765";
+import { getUserSession } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
     try {
-        const cookieStore = await cookies();
-        const sessionToken = cookieStore.get("session")?.value;
+        const session = await getUserSession();
 
-        if (!sessionToken) {
+        if (!session) {
             return NextResponse.json({
                 success: false,
                 isAuthenticated: false,
-                message: "No session found"
-            }, { status: 401 });
-        }
-
-        let payload: any = null;
-        try {
-            payload = jwt.verify(sessionToken, JWT_SECRET);
-        } catch (err) {
-            return NextResponse.json({
-                success: false,
-                isAuthenticated: false,
-                message: "Invalid or expired session"
+                message: "No session or invalid token"
             }, { status: 401 });
         }
 
@@ -32,9 +17,9 @@ export async function GET(req: NextRequest) {
             success: true,
             isAuthenticated: true,
             user: {
-                userId: payload.userId,
-                email: payload.email,
-                username: payload.username
+                userId: session.userId,
+                email: session.email,
+                username: session.username
             }
         }, { status: 200 });
 
