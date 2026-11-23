@@ -3,11 +3,13 @@ import { NextResponse } from 'next/server';
 export async function GET() {
 
   try {
+    const agentId = process.env.ELEVENLABS_AGENT_ID || process.env.NEXT_PUBLIC_AGENT_ID;
+    const apiKey = process.env.ELEVENLABS_API_KEY || process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
     const response = await fetch(
-      `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${process.env.NEXT_PUBLIC_AGENT_ID}`,
+      `https://api.elevenlabs.io/v1/convai/conversation/get-signed-url?agent_id=${agentId}`,
       {
         headers: {
-          'xi-api-key': process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY!,
+          'xi-api-key': apiKey!,
         },
       }
     );

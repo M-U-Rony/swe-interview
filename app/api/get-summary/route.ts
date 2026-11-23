@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
   try {
     const transcriptText = await request.text();
 
-    const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY }); 
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY }); 
 
     const response = await ai.models.generateContent({ 
       model: "gemini-2.5-flash", 

@@ -9,8 +9,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const agentId = process.env.NEXT_PUBLIC_AGENT_ID;
-    const apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
+    const agentId = process.env.ELEVENLABS_AGENT_ID || process.env.NEXT_PUBLIC_AGENT_ID;
+    const apiKey = process.env.ELEVENLABS_API_KEY || process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
 
     if (!agentId || !apiKey) {
       return NextResponse.json(

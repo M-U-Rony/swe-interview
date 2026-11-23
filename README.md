@@ -1,36 +1,142 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SWE Interview — AI Voice Mock Interview Platform
+
+![CI](https://github.com/M-U-Rony/swe-interview/actions/workflows/ci.yml/badge.svg)
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=flat&logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat&logo=typescript&logoColor=white)
+![ElevenLabs](https://img.shields.io/badge/ElevenLabs-Voice%20AI-111111?style=flat)
+![Gemini](https://img.shields.io/badge/Gemini-2.5%20Flash-4285F4?style=flat&logo=google&logoColor=white)
+![MongoDB](https://img.shields.io/badge/MongoDB-Mongoose-47A248?style=flat&logo=mongodb&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker&logoColor=white)
+
+**SWE Interview** is a full-stack AI voice mock interview platform for software engineers. Candidates upload their PDF resumes, configure their target role and seniority level, conduct real-time two-way voice interviews powered by **ElevenLabs Conversational AI**, and receive automated structured evaluations (1–10 score + actionable feedback) from **Google Gemini 2.5 Flash**.
+
+---
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Candidate["Candidate (Next.js 16 Dashboard)"] -->|Upload PDF| Parser["/api/parse-pdf (pdf-parse)"]
+    Parser -->|Store Resume| Mongo[(MongoDB / Mongoose)]
+    Candidate -->|Request Signed URL| SignedURL["/api/get-signed-url"]
+    SignedURL -->|Server-side xi-api-key| EL["ElevenLabs Conversational AI"]
+    Candidate <-->|Real-Time Voice WebSocket| EL
+    Candidate -->|Post-Interview| Transcript["/api/get-transcript"]
+    Transcript -->|Fetch Conversation| EL
+    Transcript -->|Evaluate JSON| Gemini["/api/get-summary (Gemini 2.5 Flash)"]
+    Gemini -->|Score + Feedback| Mongo
+```
+
+---
+
+## Key Features
+
+- **Real-Time AI Voice Interviewer:** Two-way low-latency voice conversations using `@elevenlabs/react` and `@elevenlabs/elevenlabs-js` with server-generated signed WebSocket URLs so API keys never leak to the browser.
+- **Resume-Aware Personalization:** Uploads and extracts raw text from candidate PDF resumes (`pdf-parse`) and pairs it with profile metadata (`targetRole`, `experienceLevel`) so the voice agent asks tailored technical questions.
+- **Automated Structured Evaluation:** Fetches the full interview transcript from ElevenLabs and evaluates it with **Gemini 2.5 Flash** (`responseMimeType: "application/json"`) to generate a 1–10 score, strengths, improvement areas, and communication feedback.
+- **Interview History & Profile Dashboard:** Track past mock interviews, revisit full transcripts and scorecards, and manage multiple uploaded resumes.
+- **Secure Auth & Validation:** JWT HTTP-only cookies, `bcryptjs` password hashing, and `zod` request validation backed by MongoDB (Mongoose).
+- **Docker & CI/CD Ready:** Multi-stage production `Dockerfile` and GitHub Actions CI pipeline (TypeScript typecheck, Next.js production build, Docker image build).
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Framework** | Next.js 16 (App Router), React 19, TypeScript 5, Tailwind CSS v4 |
+| **Voice AI Agent** | ElevenLabs Conversational AI (`@elevenlabs/react`, `@elevenlabs/elevenlabs-js`) |
+| **LLM Evaluation** | Google Gemini 2.5 Flash (`@google/genai`, structured JSON output) |
+| **Resume Processing** | `pdf-parse` |
+| **Database & Auth** | MongoDB, Mongoose 9, JWT, `bcryptjs`, Zod v4 |
+| **DevOps** | Docker, GitHub Actions CI |
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js 20+
+- MongoDB database (Atlas or local)
+- ElevenLabs API key + Conversational AI Agent ID
+- Google Gemini API key
+
+### 1. Clone & Install
+
+```bash
+git clone https://github.com/M-U-Rony/swe-interview.git
+cd swe-interview
+npm install --legacy-peer-deps
+```
+
+### 2. Configure Environment Variables
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in `.env.local`:
+
+```env
+MONGODB_URL="mongodb://localhost:27017/swe-interview"
+JWT_SECRET="your-strong-secret"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+ELEVENLABS_API_KEY="your-elevenlabs-api-key"
+ELEVENLABS_AGENT_ID="your-elevenlabs-agent-id"
+GEMINI_API_KEY="your-gemini-api-key"
+```
+
+### 3. Run Development Server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Docker Deployment
 
-## Learn More
+```bash
+docker build -t swe-interview .
+docker run -d -p 3000:3000 --name swe-interview-app --env-file .env.local swe-interview
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project Structure
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```text
+├── .github/workflows/ci.yml        # GitHub Actions CI (typecheck, Next.js build, Docker build)
+├── app/
+│   ├── api/
+│   │   ├── get-signed-url/         # Server-side ElevenLabs signed WebSocket URL
+│   │   ├── setup-agent/            # Programmatic ElevenLabs agent configuration
+│   │   ├── get-transcript/         # Fetch completed voice interview transcript
+│   │   ├── get-summary/            # Gemini 2.5 Flash structured JSON evaluation
+│   │   ├── parse-pdf/              # PDF resume upload & text extraction
+│   │   └── signup / signin / me / profile / signout
+│   └── dashboard/
+│       ├── interview/              # Voice interview setup, live session & results
+│       ├── history/                # Past interviews & scorecards
+│       ├── resumes/                # Resume library
+│       └── profile/                # Target role & seniority profile
+├── components/
+│   ├── conversation.tsx            # ElevenLabs real-time voice conversation client
+│   └── interviewClient.tsx         # Interview flow orchestrator
+├── lib/auth.ts                     # JWT session helpers
+├── models/model.ts                 # Mongoose schemas (User, Resume, Profile, Interview)
+├── utils/
+│   ├── dbConnection.ts             # MongoDB singleton connection
+│   └── zodSchemas.ts               # Zod validation schemas
+└── Dockerfile
+```
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This project is open-source and available under the [MIT License](LICENSE).
