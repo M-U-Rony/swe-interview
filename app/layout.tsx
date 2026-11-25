@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Archivo, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const poppins = Poppins({
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-poppins",
-  subsets: ["latin"],
-});
+const archivo = Archivo({ weight: ["600", "800"], variable: "--font-archivo", subsets: ["latin"] });
+const inter = Inter({ weight: ["400", "500", "600"], variable: "--font-inter", subsets: ["latin"] });
+const jetbrains = JetBrains_Mono({ weight: ["400", "500"], variable: "--font-jetbrains", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AI Interviewer - Realistic Prep with Experience-Based AI",
-  description: "Upload your resume and prepare for your next job interview with realistic, interactive, experience-based AI mock interviews.",
+  title: "swe/interview — voice mock interviews for software engineers",
+  description: "Rehearse the interview out loud. A voice interviewer reads your resume, asks questions at your level, and scores you on a clear rubric.",
 };
 
 export default function RootLayout({
@@ -19,13 +17,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${poppins.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col transition-colors duration-300">
-        {children}
-      </body>
+    <html lang="en" className={`${archivo.variable} ${inter.variable} ${jetbrains.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col font-sans bg-paper text-ink">{children}</body>
     </html>
   );
 }

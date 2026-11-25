@@ -1,10 +1,14 @@
 'use client';
 
 import { useConversation } from '@elevenlabs/react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { MicIcon, Squares } from '@/components/ui';
 
 const MAX_SECONDS = 15 * 60;
+const MIN_ANSWERS_FOR_SCORE = 3;
+const METER_BARS = 8;
 
 function micErrorMessage(error: unknown): string {
   const name = error instanceof DOMException ? error.name : '';
@@ -33,13 +37,21 @@ function sendEndReason(interviewId: string, endReason: string) {
   }).catch(() => undefined);
 }
 
-export function Conversation() {
+interface Line {
+  role: 'user' | 'agent';
+  message: string;
+  at: number;
+}
+
+export function Conversation({ targetRole, experienceLevel }: { targetRole: string; experienceLevel: string }) {
   const router = useRouter();
   const interviewIdRef = useRef<string | null>(null);
   const [error, setError] = useState('');
   const [starting, setStarting] = useState(false);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [lines, setLines] = useState<Line[]>([]);
+  const [micLevel, setMicLevel] = useState(0);
 
   const conversation = useConversation({
     onConnect: ({ conversationId }) => {
@@ -52,8 +64,11 @@ export function Conversation() {
         body: JSON.stringify({ conversationId }),
       }).catch((err) => console.error('Failed to register conversation:', err));
     },
+    onMessage: ({ message, role }) => {
+      if (message?.trim()) setLines((prev) => [...prev, { role, message, at: Date.now() }]);
+    },
     onDisconnect: async (details) => {
-      // Fires for every ending: Stop button (user), agent hang-up or time limit (agent), network drop (error).
+      // Fires for every ending: End button (user), agent hang-up or time limit (agent), network drop (error).
       const interviewId = interviewIdRef.current;
       interviewIdRef.current = null;
       setStartedAt(null);
@@ -64,16 +79,23 @@ export function Conversation() {
     onError: (err) => console.error('Conversation error:', err),
   });
 
-  // Tick the on-screen timer while connected.
+  const isConnected = conversation.status === 'connected';
+
+  // Tick the on-screen timer and the microphone meter while connected.
   useEffect(() => {
-    if (startedAt === null) return;
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
-  }, [startedAt]);
+    if (!isConnected) return;
+    const clock = setInterval(() => setNow(Date.now()), 1000);
+    const meter = setInterval(() => setMicLevel(conversation.getInputVolume()), 120);
+    return () => {
+      clearInterval(clock);
+      clearInterval(meter);
+    };
+  }, [isConnected, conversation]);
 
   const startConversation = async () => {
     setError('');
     setStarting(true);
+    setLines([]);
     try {
       // 1. Microphone first, so a missing mic never creates an interview record (D3).
       try {
@@ -84,7 +106,7 @@ export function Conversation() {
         return;
       }
 
-      // 2. Server checks (one at a time, daily limit) and creates the interview.
+      // 2. Server checks (profile, one at a time, daily limit) and creates the interview.
       const res = await fetch('/api/interviews', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -93,9 +115,8 @@ export function Conversation() {
       }
       interviewIdRef.current = data.interviewId;
 
-      // 3. Connect to the interviewer.
+      // 3. Connect. The prompt lives on the agent (D4); we only send data.
       try {
-        // The prompt lives on the agent (D4); we only send data.
         await conversation.startSession({
           signedUrl: data.signedUrl,
           dynamicVariables: data.dynamicVariables,
@@ -110,168 +131,131 @@ export function Conversation() {
     }
   };
 
-  const stopConversation = () => {
-    // onDisconnect (reason "user") records the ending and opens the result page.
-    conversation.endSession();
-  };
-
   const elapsed = startedAt === null ? 0 : Math.min(MAX_SECONDS, (now - startedAt) / 1000);
-
-  const isConnected = conversation.status === 'connected';
-  const isConnecting = starting || conversation.status === 'connecting';
-  const aiSpeaking = isConnected && conversation.isSpeaking;
-  const userSpeaking = isConnected && !conversation.isSpeaking;
+  const answers = lines.filter((l) => l.role === 'user').length;
+  const lastAgent = [...lines].reverse().find((l) => l.role === 'agent');
+  const lastUser = [...lines].reverse().find((l) => l.role === 'user' && (!lastAgent || l.at < lastAgent.at));
+  const litBars = Math.round(Math.min(1, micLevel * 3) * METER_BARS);
 
   return (
-    <div className="space-y-8 w-full">
-      {/* Side-by-Side Panels Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-        
-        {/* Left Side: AI Recruiter (Marcus) */}
-        <div className={`p-6 rounded-3xl border transition-all duration-300 flex flex-col items-center justify-between min-h-[260px] text-center ${
-          aiSpeaking 
-            ? "border-brand-dark-secondary bg-brand-light-accent/15 dark:border-brand-light-primary dark:bg-brand-dark-secondary/15 shadow-md shadow-brand-dark-secondary/5"
-            : "border-brand-light-primary/10 bg-white/20 dark:bg-brand-dark-bg/10 opacity-75"
-        }`}>
-          <div className="w-full flex justify-between items-center text-xs font-semibold text-gray-500 dark:text-gray-400">
-            <span>INTERVIEWER</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-              aiSpeaking 
-                ? "bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg font-extrabold"
-                : "bg-gray-100 dark:bg-brand-dark-accent/20"
-            }`}>
-              {aiSpeaking ? "SPEAKING" : isConnected ? "LISTENING" : "OFFLINE"}
-            </span>
-          </div>
-
-          <div className="space-y-4 my-4 flex flex-col items-center">
-            {/* Avatar */}
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-2xl shadow transition-all duration-300 ${
-              aiSpeaking 
-                ? "bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg ring-4 ring-brand-dark-secondary/20 dark:ring-brand-light-primary/20 scale-105"
-                : "bg-brand-light-primary/20 dark:bg-brand-dark-primary/20 text-brand-dark-secondary dark:text-brand-light-primary"
-            }`}>
-              M
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">Marcus (AI Recruiter)</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {aiSpeaking ? "Marcus is asking a question..." : isConnected ? "Marcus is listening to you" : "Ready to start session"}
-              </p>
-            </div>
-          </div>
-
-          {/* Soundwave animation */}
-          <div className={`wave-container text-brand-dark-secondary dark:text-brand-light-primary ${aiSpeaking ? 'wave-active' : ''}`}>
-            <span className="wave-bar wave-bar-1 bg-current" />
-            <span className="wave-bar wave-bar-2 bg-current" />
-            <span className="wave-bar wave-bar-3 bg-current" />
-            <span className="wave-bar wave-bar-4 bg-current" />
-            <span className="wave-bar wave-bar-5 bg-current" />
-          </div>
+    <div className="flex min-h-screen flex-col bg-night text-night-text">
+      <header className="flex flex-wrap items-end justify-between gap-5 px-5 pt-6 sm:px-10">
+        <div className="flex flex-col gap-2.5">
+          <span className="inline-flex items-center gap-2.5 font-mono text-[13px]">
+            <span className={`size-2.5 rounded-full ${isConnected ? 'bg-signal' : 'bg-night-rule'}`} />
+            {isConnected ? 'LIVE' : starting || conversation.status === 'connecting' ? 'CONNECTING…' : 'READY'}
+          </span>
+          <span className="font-mono text-[13px] uppercase text-night-muted">
+            {targetRole} · {experienceLevel}
+          </span>
         </div>
-
-        {/* Right Side: Candidate (You) */}
-        <div className={`p-6 rounded-3xl border transition-all duration-300 flex flex-col items-center justify-between min-h-[260px] text-center ${
-          userSpeaking 
-            ? "border-brand-dark-secondary bg-brand-light-accent/15 dark:border-brand-light-primary dark:bg-brand-dark-secondary/15 shadow-md shadow-brand-dark-secondary/5"
-            : "border-brand-light-primary/10 bg-white/20 dark:bg-brand-dark-bg/10 opacity-75"
-        }`}>
-          <div className="w-full flex justify-between items-center text-xs font-semibold text-gray-500 dark:text-gray-400">
-            <span>YOU</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] ${
-              userSpeaking 
-                ? "bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg font-extrabold"
-                : "bg-gray-100 dark:bg-brand-dark-accent/20"
-            }`}>
-              {userSpeaking ? "YOUR TURN" : isConnected ? "SILENT" : "OFFLINE"}
-            </span>
-          </div>
-
-          <div className="space-y-4 my-4 flex flex-col items-center">
-            {/* Avatar */}
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center font-bold text-2xl shadow transition-all duration-300 ${
-              userSpeaking 
-                ? "bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg ring-4 ring-brand-dark-secondary/20 dark:ring-brand-light-primary/20 scale-105"
-                : "bg-brand-light-primary/20 dark:bg-brand-dark-primary/20 text-brand-dark-secondary dark:text-brand-light-primary"
-            }`}>
-              <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-gray-900 dark:text-white">You (Candidate)</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {userSpeaking ? "Speak now..." : isConnected ? "Waiting for AI recruiter..." : "Microphone offline"}
-              </p>
-            </div>
-          </div>
-
-          {/* Soundwave animation */}
-          <div className={`wave-container text-brand-dark-secondary dark:text-brand-light-primary ${userSpeaking ? 'wave-active' : ''}`}>
-            <span className="wave-bar wave-bar-1 bg-current" />
-            <span className="wave-bar wave-bar-2 bg-current" />
-            <span className="wave-bar wave-bar-3 bg-current" />
-            <span className="wave-bar wave-bar-4 bg-current" />
-            <span className="wave-bar wave-bar-5 bg-current" />
-          </div>
-        </div>
-
+        <p className="m-0 flex items-baseline gap-2.5">
+          <span className="font-display text-5xl font-extrabold leading-none tracking-[-0.03em] tabular-nums sm:text-[64px]">
+            {formatClock(elapsed)}
+          </span>
+          <span className="font-mono text-sm text-night-muted">/ {formatClock(MAX_SECONDS)}</span>
+        </p>
+      </header>
+      <div
+        role="progressbar"
+        aria-label="Interview time used"
+        aria-valuemin={0}
+        aria-valuemax={MAX_SECONDS}
+        aria-valuenow={Math.round(elapsed)}
+        className="mx-5 mt-5 h-0.5 bg-night-rule sm:mx-10"
+      >
+        <div className="h-0.5 bg-signal" style={{ width: `${(elapsed / MAX_SECONDS) * 100}%` }} />
       </div>
 
-      {/* Control Buttons Panel */}
-      <div className="flex flex-col items-center justify-center pt-6 border-t border-brand-light-primary/10 dark:border-brand-dark-primary/10 gap-3">
-        {isConnected && (
-          <p className="text-sm font-semibold tabular-nums text-gray-700 dark:text-gray-200" aria-label="Time used">
-            {formatClock(elapsed)} / {formatClock(MAX_SECONDS)}
-          </p>
-        )}
+      <main className="flex max-w-[1040px] flex-1 flex-col justify-center gap-9 px-5 py-14 sm:px-10">
         {isConnected ? (
-          <button
-            onClick={stopConversation}
-            className="px-8 py-3.5 bg-red-500 hover:bg-red-600 text-white font-extrabold text-sm rounded-2xl shadow-md transition-all flex items-center space-x-2"
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-            </svg>
-            <span>Stop Interview Call</span>
-          </button>
-        ) : (
-          <button
-            onClick={startConversation}
-            disabled={isConnecting}
-            className="px-8 py-3.5 bg-brand-dark-secondary hover:bg-brand-dark-secondary/95 dark:bg-brand-light-primary dark:hover:bg-brand-light-primary/95 text-white dark:text-brand-dark-bg font-extrabold text-sm rounded-2xl shadow-md transition-all flex items-center space-x-2 disabled:opacity-50"
-          >
-            {isConnecting ? (
-              <>
-                <svg className="animate-spin h-5 w-5 text-current" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>Connecting Recruiter...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-                <span>Start Audio Interview</span>
-              </>
+          <>
+            {lastUser && (
+              <div className="flex flex-col gap-2.5">
+                <span className="font-mono text-xs text-night-dim">YOU</span>
+                <p className="m-0 text-[22px] leading-normal text-night-dim">{lastUser.message}</p>
+              </div>
             )}
-          </button>
+            <div className="flex flex-col gap-3.5">
+              <span className="font-mono text-xs text-signal-on-night">
+                {conversation.isSpeaking ? 'MARCUS IS SPEAKING' : 'YOUR TURN'}
+              </span>
+              <p aria-live="polite" className="m-0 font-display text-3xl font-semibold leading-[1.18] tracking-[-0.02em] sm:text-5xl">
+                {lastAgent?.message ?? 'Connecting you to Marcus…'}
+              </p>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col items-start gap-8">
+            <h1 className="m-0 font-display text-5xl font-extrabold leading-[0.95] tracking-[-0.04em] sm:text-7xl">
+              Ready when you are.
+            </h1>
+            <p className="m-0 max-w-xl text-lg leading-normal text-night-muted">
+              Fifteen minutes with Marcus. Find a quiet room, wait for each question to finish, then answer out loud.
+              Pausing to think is fine.
+            </p>
+            <button
+              type="button"
+              onClick={startConversation}
+              disabled={starting || conversation.status === 'connecting'}
+              className="inline-flex cursor-pointer items-center gap-3.5 bg-night-text px-7 py-5 text-lg font-semibold text-night hover:bg-white disabled:opacity-50"
+            >
+              <MicIcon /> {starting || conversation.status === 'connecting' ? 'Connecting…' : 'Start interview'}
+            </button>
+            {error && (
+              <p role="alert" className="m-0 max-w-xl border-l-2 border-signal pl-4 text-base text-night-text">
+                {error}
+              </p>
+            )}
+            <Link href="/dashboard" className="text-[15px] text-night-muted hover:text-night-text">
+              Back to dashboard
+            </Link>
+          </div>
         )}
-        {error && (
-          <p role="alert" className="max-w-md text-center text-sm text-red-600 dark:text-red-400">
-            {error}
+      </main>
+
+      {isConnected && (
+        <>
+          <footer className="flex flex-wrap items-center justify-between gap-6 border-t border-night-rule px-5 py-5 sm:px-10">
+            <div className="flex items-center gap-3.5">
+              <Squares filled={Math.min(answers, MIN_ANSWERS_FOR_SCORE)} total={MIN_ANSWERS_FOR_SCORE} size={12} light />
+              <span className="font-mono text-[13px] text-night-muted">
+                {answers} ANSWER{answers === 1 ? '' : 'S'}
+                {answers >= MIN_ANSWERS_FOR_SCORE ? ' · ENOUGH FOR A SCORE' : ` · ${MIN_ANSWERS_FOR_SCORE} NEEDED FOR A SCORE`}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-night-muted">
+              <MicIcon size={18} />
+              <div
+                role="meter"
+                aria-label="Your microphone level"
+                aria-valuemin={0}
+                aria-valuemax={METER_BARS}
+                aria-valuenow={litBars}
+                className="flex h-6 items-center gap-[3px]"
+              >
+                {Array.from({ length: METER_BARS }, (_, i) => (
+                  <span
+                    key={i}
+                    className={`w-[3px] ${i < litBars ? 'bg-night-text' : 'bg-night-rule'}`}
+                    style={{ height: 6 + (i % 3) * 4 }}
+                  />
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => conversation.endSession()}
+              className="min-h-12 cursor-pointer border-[1.5px] border-night-text px-5 py-3 text-[15px] font-semibold hover:bg-night-text hover:text-night"
+            >
+              End interview
+            </button>
+          </footer>
+          <p className="m-0 px-5 pb-6 text-sm text-night-dim sm:px-10">
+            If the connection drops, everything said so far is kept.
           </p>
-        )}
-        <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest font-semibold">
-          Status: {conversation.status}
-        </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500">
-          If your connection drops, everything said so far is saved.
-        </p>
-      </div>
+        </>
+      )}
     </div>
   );
 }

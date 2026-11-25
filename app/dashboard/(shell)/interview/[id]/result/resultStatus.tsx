@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { buttonOutline } from "@/components/ui";
 
 const POLL_MS = 3000;
 
@@ -48,16 +49,11 @@ export function RetryScoringButton({ id }: { id: string }) {
   };
 
   return (
-    <div className="space-y-2">
-      <button
-        type="button"
-        onClick={retry}
-        disabled={busy}
-        className="px-5 py-2.5 bg-brand-dark-secondary dark:bg-brand-light-primary text-white dark:text-brand-dark-bg font-bold text-sm rounded-xl disabled:opacity-50"
-      >
+    <div className="flex flex-col items-start gap-2">
+      <button type="button" onClick={retry} disabled={busy} className={buttonOutline}>
         {busy ? "Retrying…" : "Try scoring again"}
       </button>
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="m-0 text-sm text-signal-text">{error}</p>}
     </div>
   );
 }

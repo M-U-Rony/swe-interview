@@ -24,19 +24,14 @@ export default async function ResumesPage() {
   }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto animate-fade-in pb-12">
-      
-      {/* Page Header */}
-      <section className="space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Resume Manager</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 font-light leading-relaxed max-w-3xl">
-          Upload your resume below to construct your custom profile. Our AI engine parses your technical background, credentials, and achievements to generate tailored practice interviews.
+    <section className="flex flex-col gap-10 pt-16">
+      <div className="flex flex-col gap-4">
+        <h1 className="m-0 font-display text-5xl font-extrabold tracking-[-0.03em] sm:text-[64px]">Resume</h1>
+        <p className="m-0 max-w-2xl text-[17px] leading-normal text-soft">
+          Marcus picks his questions from your resume. Uploading a new one replaces the old one.
         </p>
-      </section>
-
-      {/* Render the Client-Side Interactive Form & Display Wrapper */}
+      </div>
       <ResumesClient initialFileName={initialFileName} />
-
-    </div>
+    </section>
   );
 }

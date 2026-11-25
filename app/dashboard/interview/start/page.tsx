@@ -25,5 +25,5 @@ export default async function InterviewStartPage() {
     redirect("/dashboard/resumes");
   }
 
-  return <InterviewStartClient />;
+  return <InterviewStartClient targetRole={profile.targetRole} experienceLevel={profile.experienceLevel} />;
 }

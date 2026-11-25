@@ -3,6 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { env } from "@/lib/env";
 import type { DialogueEntry } from "@/lib/elevenlabs";
+import { CRITERIA, type Criterion } from "@/lib/rubric";
 import { Interview } from "@/models/model";
 import dbConnect from "@/utils/dbConnection";
 
@@ -11,14 +12,6 @@ const MAX_TRIES_PER_RUN = 3;
 /** A run stuck in "running" longer than this is treated as failed (D2). */
 export const STALE_RUN_MS = 3 * 60 * 1000;
 
-/** Rubric weights (D11). English fluency is reported separately and never counted. */
-export const CRITERIA = {
-  technical: { label: "Technical knowledge", weight: 0.35 },
-  problemSolving: { label: "Problem solving", weight: 0.25 },
-  communication: { label: "Communication", weight: 0.25 },
-  behavioral: { label: "Behavioral", weight: 0.15 },
-} as const;
-export type Criterion = keyof typeof CRITERIA;
 const CRITERION_KEYS = Object.keys(CRITERIA) as Criterion[];
 
 const criterionResult = z.object({

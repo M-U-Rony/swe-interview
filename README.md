@@ -125,13 +125,16 @@ docker run -d -p 3000:3000 --name swe-interview-app --env-file .env.local swe-in
 │   │   ├── parse-pdf/              # PDF resume upload & text extraction
 │   │   └── signup / signin / me / profile / signout
 │   └── dashboard/
-│       ├── interview/              # Voice interview setup, live session & results
+│       ├── interview/start/        # Full-screen live interview
+│       ├── (shell)/                # Pages with the top bar: home, history, results, resume, profile
 │       ├── history/                # Past interviews & scorecards
 │       ├── resumes/                # Resume library
 │       └── profile/                # Target role & seniority profile
 ├── components/
-│   ├── conversation.tsx            # ElevenLabs real-time voice conversation client
-│   └── interviewClient.tsx         # Interview flow orchestrator
+│   ├── conversation.tsx            # Live interview screen (ElevenLabs voice client)
+│   ├── interviewLog.tsx            # Interview list used by dashboard and history
+│   ├── landingPage.tsx             # Public landing page
+│   └── ui.tsx                      # Shared UI pieces (v2 design)
 ├── lib/
 │   ├── auth.ts                     # JWT session helpers
 │   ├── env.ts                      # Validated server environment

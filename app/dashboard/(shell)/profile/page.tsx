@@ -39,15 +39,14 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto animate-fade-in pb-12">
-      <div className="space-y-1">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Profile Settings</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 font-light leading-relaxed">
-          Manage your professional details. This data helps the AI contextualize mock interview sessions to match your seniority and experience level.
+    <section className="flex flex-col gap-10 pt-16">
+      <div className="flex flex-col gap-4">
+        <h1 className="m-0 font-display text-5xl font-extrabold tracking-[-0.03em] sm:text-[64px]">Profile</h1>
+        <p className="m-0 max-w-2xl text-[17px] leading-normal text-soft">
+          Your role and level decide which questions Marcus asks and what a good answer looks like.
         </p>
       </div>
-
       <ProfileClient initialProfile={initialProfile} />
-    </div>
+    </section>
   );
 }
