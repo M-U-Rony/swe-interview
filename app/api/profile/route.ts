@@ -4,6 +4,7 @@ import path from "node:path";
 import dbConnect from "@/utils/dbConnection";
 import { Profile } from "@/models/model";
 import { getUserId } from "@/lib/auth";
+import { detectImageType, MAX_IMAGE_BYTES, UPLOAD_DIR } from "@/lib/uploads";
 
 // GET handler: Fetch active user profile
 export async function GET(req: NextRequest) {
@@ -52,23 +53,22 @@ export async function POST(req: NextRequest) {
 
     let profileImagePath: string | undefined = undefined;
 
-    // Check and save image if uploaded
+    // Check and save image if uploaded (D8 #25): PNG/JPEG/WebP only, by content, max 2 MB.
     if (profileImageFile && profileImageFile.size > 0) {
-      const uploadDir = path.join(process.cwd(), "uploads");
-      
-      // Ensure uploads folder exists
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
+      if (profileImageFile.size > MAX_IMAGE_BYTES) {
+        return NextResponse.json({ error: "Profile image must be 2 MB or smaller." }, { status: 400 });
       }
 
-      const fileExtension = path.extname(profileImageFile.name) || ".jpg";
-      const filename = `${userId}-${Date.now()}${fileExtension}`;
-      const filePath = path.join(uploadDir, filename);
+      const buffer = Buffer.from(await profileImageFile.arrayBuffer());
+      const ext = detectImageType(buffer);
+      if (!ext) {
+        return NextResponse.json({ error: "Profile image must be a PNG, JPEG or WebP." }, { status: 400 });
+      }
 
-      const arrayBuffer = await profileImageFile.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-
-      fs.writeFileSync(filePath, buffer);
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+      // The server picks the name and extension; nothing comes from the uploaded file name.
+      const filename = `${userId}-${Date.now()}.${ext}`;
+      fs.writeFileSync(path.join(UPLOAD_DIR, filename), buffer);
       profileImagePath = `/api/uploads/${filename}`;
     }
 

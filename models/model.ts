@@ -3,8 +3,18 @@ import mongoose from 'mongoose'
 const userSchema = new mongoose.Schema({
     username: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    password: { type: String, required: true }
+    password: { type: String, required: true },
+    // Bumped on sign-out; tokens carrying an older version are rejected (D9 #31).
+    tokenVersion: { type: Number, default: 0 }
 })
+
+// Fixed-window counters for rate limiting; MongoDB deletes them once expired (D9 #29).
+const rateLimitSchema = new mongoose.Schema({
+    key: { type: String, required: true, unique: true },
+    count: { type: Number, default: 0 },
+    expiresAt: { type: Date, required: true },
+})
+rateLimitSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const resumeSchema = new mongoose.Schema({
 
@@ -99,3 +109,4 @@ export const User = mongoose.models.User || mongoose.model('User', userSchema);
 export const Resume = mongoose.models.Resume || mongoose.model('Resume', resumeSchema);
 export const Profile = mongoose.models.Profile || mongoose.model('Profile', profileSchema);
 export const Interview = mongoose.models.Interview || mongoose.model('Interview', interviewSchema);
+export const RateLimit = mongoose.models.RateLimit || mongoose.model('RateLimit', rateLimitSchema);

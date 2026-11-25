@@ -3,6 +3,12 @@ import dbConnect from "@/utils/dbConnection";
 import { signinSchema } from "@/utils/zodSchemas";
 import { NextRequest, NextResponse } from "next/server";
 import { signSession, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/auth";
+import { clientIp, getCount, hit, reset } from "@/lib/rateLimit";
+
+// D9 #29: 5 wrong passwords per email, 20 per IP, within 15 minutes.
+const WINDOW_MS = 15 * 60 * 1000;
+const MAX_FAILS_PER_EMAIL = 5;
+const MAX_FAILS_PER_IP = 20;
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 
@@ -22,30 +28,35 @@ export async function POST(req: NextRequest) {
         }
 
         const { email, password } = result.data;
+        const emailKey = `signin:email:${email}`;
+        const ipKey = `signin:ip:${clientIp(req.headers)}`;
 
-        const isUser = await User.findOne({ email });
+        if ((await getCount(emailKey)) >= MAX_FAILS_PER_EMAIL || (await getCount(ipKey)) >= MAX_FAILS_PER_IP) {
+            return NextResponse.json({
+                success: false,
+                message: "Too many failed attempts. Please wait 15 minutes and try again.",
+            }, { status: 429 });
+        }
 
-        if (!isUser) {
+        // Emails are stored lowercase now; the original spelling covers accounts made before that.
+        const isUser = await User.findOne({ email: { $in: [email, body?.email] } });
+        const isPasswordCorrect = isUser ? await bcrypt.compare(password, isUser.password) : false;
+
+        if (!isUser || !isPasswordCorrect) {
+            await Promise.all([hit(emailKey, WINDOW_MS), hit(ipKey, WINDOW_MS)]);
             return NextResponse.json({
                 success: false,
                 message: "Incorrect email or password",
             }, { status: 401 });
         }
 
-        const isPasswordCorrect = await bcrypt.compare(password, isUser.password);
-
-        if (!isPasswordCorrect) {
-            return NextResponse.json({
-                success: false,
-                message: "Incorrect email or password",
-            }, { status: 401 });
-        }
+        await reset(emailKey);
 
         const token = signSession({
             userId: isUser._id.toString(),
             email: isUser.email,
             username: isUser.username,
-        });
+        }, isUser.tokenVersion ?? 0);
 
         const cookieStore = await cookies();
         cookieStore.set(SESSION_COOKIE, token, {
