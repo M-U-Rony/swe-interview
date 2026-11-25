@@ -242,3 +242,41 @@ ElevenLabs প্রতিটা কল আর তার ট্রান্স�
 - `app/api/get-signed-url/route.ts` — সরানো
 - নতুন `proxy.ts` (বা Next.js 16-এ যে নাম)
 - `.env.example`
+
+---
+
+## D7 — এজেন্ট সেটআপ: API রুট নয়, একবার চালানোর স্ক্রিপ্ট
+
+**সমাধান করে:** #24
+**অবস্থা:** সিদ্ধান্ত চূড়ান্ত · implement বাকি
+**এক জায়গায় আনে:** D3, D4, D5-এর এজেন্ট সেটিং
+
+### প্রেক্ষাপট
+
+`/api/setup-agent` প্রতিটা ইন্টারভিউ শুরুর আগে শেয়ার্ড এজেন্টে একই `PATCH` পাঠায় (ElevenLabs-এর নিজস্ব মূল্যায়ন: `data_collection`, `evaluation_criteria`)। সেই মূল্যায়ন কোথাও ব্যবহার হয় না, প্রতিবার কল শুরু দেরি হয়, আর রেসপন্সে এজেন্টের পুরো কনফিগ (প্রম্পটসহ) ব্রাউজারে যায়।
+**সংশোধন:** PATCH-এর body কোডে ফিক্সড, তাই ইউজার ইচ্ছামতো কিছু বসাতে পারে না। আসল ক্ষতি কনফিগ ফাঁস + অপ্রয়োজনীয় কাজ — তীব্রতা 🟠।
+
+### সিদ্ধান্তগুলো
+
+- `/api/setup-agent` রুট আর `components/conversation.tsx`-এর `getSummary()` কল **মুছে ফেলা হবে।**
+- নতুন **`scripts/setup-agent.ts`**, চালানো হবে হাতে, একবার: `npm run setup:agent`। এটা এজেন্টে বসাবে:
+  - Marcus-এর system prompt ও first message — repo-র প্রম্পট ফাইল থেকে (D4)
+  - prompt / first message override বন্ধ (D4)
+  - নীরবতা ও সময়সীমা: ~১০ সে. পরে জিজ্ঞাসা, ~৬০ সে. পরে কল শেষ, সর্বোচ্চ ১৫ মিনিট (D3)
+  - ভাষা শুধু ইংরেজি; কল শেষ করার ক্ষমতা (end call) চালু (D5)
+  - ElevenLabs-এর `data_collection` / `evaluation_criteria` বাদ (D5)
+- একাধিকবার চালালেও একই অবস্থা তৈরি করবে (idempotent)।
+- স্ক্রিপ্ট সার্ভারের env থেকে `ELEVENLABS_API_KEY` আর `ELEVENLABS_AGENT_ID` পড়বে; কিছু ব্রাউজারে যাবে না।
+- README-তে সেটআপের ধাপ: `.env` ভরো → `npm run setup:agent` → `npm run dev`।
+
+### implement করার আগে যাচাই করতে হবে
+
+- ElevenLabs agent API-তে উপরের প্রতিটা সেটিংয়ের সঠিক ফিল্ডের নাম।
+- স্ক্রিপ্ট চালানোর উপায় (`tsx` বা অনুরূপ dev dependency লাগবে কিনা)।
+
+### যা বদলাবে
+
+- `app/api/setup-agent/route.ts` — সরানো
+- `components/conversation.tsx` — `getSummary()` কল সরানো
+- নতুন `scripts/setup-agent.ts`, `package.json`-এ `setup:agent` স্ক্রিপ্ট
+- `README.md` — সেটআপের ধাপ
