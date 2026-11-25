@@ -1,48 +1,29 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import jwt from "jsonwebtoken";
+import { getUserSession } from "@/lib/auth";
 import dbConnect from "@/utils/dbConnection";
-import { Resume } from "@/models/model";
+import { Profile, Resume } from "@/models/model";
 import InterviewStartClient from "./interviewStartClient";
 
 
-interface UserSession {
-  userId: string;
-  email: string;
-  username: string;
-}
-
 export default async function InterviewStartPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
-
-  if (!token) {
+  const session = await getUserSession();
+  if (!session) {
     redirect("/signin");
   }
+  const userId = session.userId;
 
-  let userId: string;
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as UserSession;
-    userId = decoded.userId;
-  } catch (err) {
-    redirect("/signin");
+  // D10: profile (role + level) and resume are both needed before an interview.
+  await dbConnect();
+  const [profile, hasResume] = await Promise.all([
+    Profile.findOne({ user: userId }),
+    Resume.exists({ author: userId }),
+  ]);
+  if (!profile?.targetRole || !profile?.experienceLevel) {
+    redirect("/dashboard/profile");
+  }
+  if (!hasResume) {
+    redirect("/dashboard/resumes");
   }
 
-  let resumeText = "";
-  try {
-    await dbConnect();
-    const userResume = await Resume.findOne({ author: userId });
-    if (userResume) {
-      resumeText = userResume.rawText;
-    } else {
-      redirect("/dashboard/resumes");
-    }
-  } catch (error) {
-    console.error("Failed to query resume text:", error);
-    redirect("/dashboard/interview");
-  }
-
-  return (
-    <InterviewStartClient resumeText={resumeText} />
-  );
+  return <InterviewStartClient targetRole={profile.targetRole} experienceLevel={profile.experienceLevel} />;
 }

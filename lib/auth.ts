@@ -1,47 +1,69 @@
+import "server-only";
 import { cookies } from "next/headers";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
+import { env } from "@/lib/env";
+import { User } from "@/models/model";
+import dbConnect from "@/utils/dbConnection";
 
-const JWT_SECRET = process.env.JWT_SECRET || "interview-prep-ai-secret-default-key-98765";
+export const SESSION_COOKIE = "session";
+export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 days
 
-interface UserSession {
+export interface UserSession {
   userId: string;
   email: string;
   username: string;
 }
 
-/**
- * Reusable helper to authenticate the user session from cookies
- * and return the active userId.
- * 
- * @returns {Promise<string | null>} The active user's ID, or null if unauthenticated.
- */
-export async function getUserId(): Promise<string | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
-    if (!token) return null;
+interface TokenPayload extends UserSession {
+  tokenVersion: number;
+}
 
-    const decoded = jwt.verify(token, JWT_SECRET) as UserSession;
-    return decoded.userId;
-  } catch (error) {
+/** Sign a session token for a user. */
+export function signSession(session: UserSession, tokenVersion: number): string {
+  const payload: TokenPayload = { ...session, tokenVersion };
+  return jwt.sign(payload, env().JWT_SECRET, { expiresIn: SESSION_MAX_AGE_SECONDS });
+}
+
+/** Check the token's signature and expiry only. Returns null if missing, expired or tampered with. */
+export function verifySessionToken(token: string | undefined): TokenPayload | null {
+  if (!token) return null;
+  try {
+    const decoded = jwt.verify(token, env().JWT_SECRET) as TokenPayload;
+    return {
+      userId: decoded.userId,
+      email: decoded.email,
+      username: decoded.username,
+      tokenVersion: decoded.tokenVersion ?? 0,
+    };
+  } catch {
     return null;
   }
 }
 
 /**
- * Reusable helper to authenticate the user session and return the full session payload.
- * 
- * @returns {Promise<UserSession | null>} The active user session, or null if unauthenticated.
+ * Authenticate the current request from its session cookie. Besides the
+ * signature, the token must carry the user's current tokenVersion, so tokens
+ * from before a sign-out stop working (D9 #31).
+ * @returns The active user session, or null if unauthenticated.
  */
 export async function getUserSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session")?.value;
-    if (!token) return null;
+  const cookieStore = await cookies();
+  const payload = verifySessionToken(cookieStore.get(SESSION_COOKIE)?.value);
+  if (!payload || !mongoose.isValidObjectId(payload.userId)) return null;
 
-    const decoded = jwt.verify(token, JWT_SECRET) as UserSession;
-    return decoded;
-  } catch (error) {
-    return null;
-  }
+  await dbConnect();
+  const user = await User.findById(payload.userId).select("tokenVersion").lean<{ tokenVersion?: number }>();
+  if (!user || (user.tokenVersion ?? 0) !== payload.tokenVersion) return null;
+
+  return { userId: payload.userId, email: payload.email, username: payload.username };
+}
+
+/**
+ * Authenticate the current request and return the active userId.
+ * @returns The active user's ID, or null if unauthenticated.
+ */
+export async function getUserId(): Promise<string | null> {
+  const session = await getUserSession();
+  return session?.userId ?? null;
 }

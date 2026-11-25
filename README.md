@@ -19,13 +19,14 @@
 flowchart LR
     Candidate["Candidate (Next.js 16 Dashboard)"] -->|Upload PDF| Parser["/api/parse-pdf (pdf-parse)"]
     Parser -->|Store Resume| Mongo[(MongoDB / Mongoose)]
-    Candidate -->|Request Signed URL| SignedURL["/api/get-signed-url"]
-    SignedURL -->|Server-side xi-api-key| EL["ElevenLabs Conversational AI"]
+    Candidate -->|Start: checks + record| Start["POST /api/interviews"]
+    Start -->|Signed URL, server-side key| EL["ElevenLabs Conversational AI"]
     Candidate <-->|Real-Time Voice WebSocket| EL
-    Candidate -->|Post-Interview| Transcript["/api/get-transcript"]
-    Transcript -->|Fetch Conversation| EL
-    Transcript -->|Evaluate JSON| Gemini["/api/get-summary (Gemini 2.5 Flash)"]
-    Gemini -->|Score + Feedback| Mongo
+    Candidate -->|conversationId, end reason| Track["PATCH /api/interviews/:id"]
+    Track --> Mongo
+    Result["Result / History pages"] -->|Pull transcript when done| EL
+    Result -->|Score once, rubric| Gemini["lib/scoring.ts (Gemini 2.5 Flash)"]
+    Gemini -->|Score + Evidence| Mongo
 ```
 
 ---
@@ -81,14 +82,21 @@ Fill in `.env.local`:
 
 ```env
 MONGODB_URL="mongodb://localhost:27017/swe-interview"
-JWT_SECRET="your-strong-secret"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+JWT_SECRET="at-least-32-characters"   # openssl rand -base64 32
 ELEVENLABS_API_KEY="your-elevenlabs-api-key"
 ELEVENLABS_AGENT_ID="your-elevenlabs-agent-id"
 GEMINI_API_KEY="your-gemini-api-key"
 ```
 
-### 3. Run Development Server
+### 3. Set Up the Interviewer Agent
+
+Run once (and again whenever `prompts/interviewer.md` changes). It configures the ElevenLabs agent: Marcus's prompt, 15-minute limit, silence handling, English only, and blocks the browser from overriding the prompt.
+
+```bash
+npm run setup:agent
+```
+
+### 4. Run Development Server
 
 ```bash
 npm run dev
@@ -113,21 +121,29 @@ docker run -d -p 3000:3000 --name swe-interview-app --env-file .env.local swe-in
 ├── .github/workflows/ci.yml        # GitHub Actions CI (typecheck, Next.js build, Docker build)
 ├── app/
 │   ├── api/
-│   │   ├── get-signed-url/         # Server-side ElevenLabs signed WebSocket URL
-│   │   ├── setup-agent/            # Programmatic ElevenLabs agent configuration
-│   │   ├── get-transcript/         # Fetch completed voice interview transcript
-│   │   ├── get-summary/            # Gemini 2.5 Flash structured JSON evaluation
+│   │   ├── interviews/             # Start, track and retry-scoring interviews
 │   │   ├── parse-pdf/              # PDF resume upload & text extraction
 │   │   └── signup / signin / me / profile / signout
 │   └── dashboard/
-│       ├── interview/              # Voice interview setup, live session & results
+│       ├── interview/start/        # Full-screen live interview
+│       ├── (shell)/                # Pages with the top bar: home, history, results, resume, profile
 │       ├── history/                # Past interviews & scorecards
 │       ├── resumes/                # Resume library
 │       └── profile/                # Target role & seniority profile
 ├── components/
-│   ├── conversation.tsx            # ElevenLabs real-time voice conversation client
-│   └── interviewClient.tsx         # Interview flow orchestrator
-├── lib/auth.ts                     # JWT session helpers
+│   ├── conversation.tsx            # Live interview screen (ElevenLabs voice client)
+│   ├── interviewLog.tsx            # Interview list used by dashboard and history
+│   ├── landingPage.tsx             # Public landing page
+│   └── ui.tsx                      # Shared UI pieces (v2 design)
+├── lib/
+│   ├── auth.ts                     # JWT session helpers
+│   ├── env.ts                      # Validated server environment
+│   ├── interviews.ts               # Interview lifecycle, limits, reconciliation
+│   ├── scoring.ts                  # Rubric scoring with Gemini
+│   ├── elevenlabs.ts               # ElevenLabs REST calls
+│   └── resume.ts                   # Resume cleaning and checks
+├── prompts/interviewer.md          # Marcus's system prompt (pushed by setup:agent)
+├── scripts/setup-agent.mts         # One-time ElevenLabs agent setup
 ├── models/model.ts                 # Mongoose schemas (User, Resume, Profile, Interview)
 ├── utils/
 │   ├── dbConnection.ts             # MongoDB singleton connection

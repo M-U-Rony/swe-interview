@@ -1,10 +1,22 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { getUserSession, SESSION_COOKIE } from "@/lib/auth";
+import { User } from "@/models/model";
 
+/**
+ * Sign out everywhere: bumping tokenVersion invalidates every token issued so
+ * far, including copies of this one (D9 #31). POST only, so a link or image on
+ * another site cannot sign the user out.
+ */
 export async function POST() {
     try {
+        const session = await getUserSession();
+        if (session) {
+            await User.updateOne({ _id: session.userId }, { $inc: { tokenVersion: 1 } });
+        }
+
         const cookieStore = await cookies();
-        cookieStore.set("session", "", {
+        cookieStore.set(SESSION_COOKIE, "", {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "strict",
@@ -22,24 +34,5 @@ export async function POST() {
             success: false,
             message: "Internal server error"
         }, { status: 500 });
-    }
-}
-
-export async function GET() {
-    // Also allow GET requests for direct link click sign-outs if needed
-    try {
-        const cookieStore = await cookies();
-        cookieStore.set("session", "", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "strict",
-            path: "/",
-            maxAge: 0,
-        });
-        
-        return NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"));
-    } catch (error) {
-        console.error("Error during GET signout:", error);
-        return NextResponse.redirect(new URL("/", "http://localhost:3000"));
     }
 }

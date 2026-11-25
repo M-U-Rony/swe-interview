@@ -1,81 +1,43 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
-
+/* UI v2 (D12): editorial, ruled, one signal colour. */
 @theme {
-  --font-sans: var(--font-poppins), sans-serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-archivo), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
 
-  /* Color Palette (for light mode): #B1B2FF #AAC4FF #D2DAFF #EEF1FF */
-  --color-brand-light-primary: #B1B2FF;
-  --color-brand-light-secondary: #AAC4FF;
-  --color-brand-light-accent: #D2DAFF;
-  --color-brand-light-bg: #EEF1FF;
+  --color-paper: #EEEDE8;      /* page background */
+  --color-surface: #F8F7F4;    /* light panels */
+  --color-ink: #121212;        /* text, rules, buttons */
+  --color-muted: #5A5A55;      /* secondary text (5.7:1 on paper) */
+  --color-soft: #3A3A36;       /* body copy in long passages */
+  --color-rule: #CFCDC5;       /* light dividers */
+  --color-signal: #FF5A1F;     /* fills, dots, highlight underlines only */
+  --color-signal-text: #B83A0C;/* signal colour for text (passes contrast) */
+  --color-mark: #FFD9C7;       /* highlight background */
 
-  /* Color Palette (for dark mode): #635985 #443C68 #393053 #18122B */
-  --color-brand-dark-primary: #635985;
-  --color-brand-dark-secondary: #443C68;
-  --color-brand-dark-accent: #393053;
-  --color-brand-dark-bg: #18122B;
+  /* Live interview (dark) */
+  --color-night: #121212;
+  --color-night-text: #EEEDE8;
+  --color-night-muted: #A3A19A;
+  --color-night-dim: #8E8C85;
+  --color-night-rule: #2E2E2B;
+  --color-signal-on-night: #FF8A5C;
 }
 
-body {
-  font-family: var(--font-poppins), sans-serif;
-  background-color: #EEF1FF;
-  color: #18122B;
+/* In the base layer so Tailwind utilities (e.g. text-paper on a link) always win. */
+@layer base {
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  a {
+    color: inherit;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-signal);
+    outline-offset: 2px;
+  }
 }
-
-.dark body {
-  background-color: #18122B;
-  color: #EEF1FF;
-}
-
-/* Custom glassmorphism utilities */
-.glass-panel {
-  background: rgba(238, 241, 255, 0.65);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(177, 178, 255, 0.3);
-}
-
-.dark .glass-panel {
-  background: rgba(24, 18, 43, 0.65);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(99, 89, 133, 0.3);
-}
-
-.glass-nav {
-  background: rgba(238, 241, 255, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(177, 178, 255, 0.2);
-}
-
-.dark .glass-nav {
-  background: rgba(24, 18, 43, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(99, 89, 133, 0.2);
-}
-
-@keyframes soundwave {
-  0%, 100% { height: 8px; }
-  50% { height: 36px; }
-}
-
-.wave-container {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  height: 40px;
-}
-
-.wave-bar {
-  width: 4px;
-  height: 8px;
-  border-radius: 9999px;
-  transition: all 0.2s ease;
-}
-
-.wave-active .wave-bar-1 { animation: soundwave 0.8s ease-in-out infinite; }
-.wave-active .wave-bar-2 { animation: soundwave 0.5s ease-in-out infinite 0.12s; }
-.wave-active .wave-bar-3 { animation: soundwave 0.7s ease-in-out infinite 0.24s; }
-.wave-active .wave-bar-4 { animation: soundwave 0.6s ease-in-out infinite 0.36s; }
-.wave-active .wave-bar-5 { animation: soundwave 0.8s ease-in-out infinite 0.18s; }
-
