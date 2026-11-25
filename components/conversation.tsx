@@ -2,31 +2,74 @@
 
 import { useConversation } from '@elevenlabs/react';
 import { useRouter } from 'next/navigation';
-import { useCallback, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+
+const MAX_SECONDS = 15 * 60;
+
+function micErrorMessage(error: unknown): string {
+  const name = error instanceof DOMException ? error.name : '';
+  if (name === 'NotAllowedError' || name === 'SecurityError') {
+    return 'Microphone access is blocked. Click the microphone icon in your browser\'s address bar, allow access, then try again.';
+  }
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+    return 'No microphone found. Connect a microphone and try again.';
+  }
+  return 'Could not use your microphone. Check your browser settings and try again.';
+}
+
+function formatClock(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+  const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function sendEndReason(interviewId: string, endReason: string) {
+  // keepalive lets the request finish even if the page is navigating away.
+  return fetch(`/api/interviews/${interviewId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ endReason }),
+    keepalive: true,
+  }).catch(() => undefined);
+}
 
 export function Conversation({ resumeText }: { resumeText: string }) {
-    
-    const [conversationId, setConversationId] = useState<string>("");
-    const router = useRouter();
+  const router = useRouter();
+  const interviewIdRef = useRef<string | null>(null);
+  const [error, setError] = useState('');
+  const [starting, setStarting] = useState(false);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   const conversation = useConversation({
-    onConnect: (conversationId) => {
-        setConversationId(conversationId.conversationId);
-        console.log('Connected')
+    onConnect: ({ conversationId }) => {
+      setStartedAt(Date.now());
+      const interviewId = interviewIdRef.current;
+      if (!interviewId) return;
+      fetch(`/api/interviews/${interviewId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId }),
+      }).catch((err) => console.error('Failed to register conversation:', err));
     },
-    onDisconnect: () => console.log('Disconnected'),
-    onMessage: (message) => console.log('Message:', message),
-    onError: (error) => console.error('Error:', error),
+    onDisconnect: async (details) => {
+      // Fires for every ending: Stop button (user), agent hang-up or time limit (agent), network drop (error).
+      const interviewId = interviewIdRef.current;
+      interviewIdRef.current = null;
+      setStartedAt(null);
+      if (!interviewId) return;
+      await sendEndReason(interviewId, details.reason);
+      router.push(`/dashboard/interview/${interviewId}/result`);
+    },
+    onError: (err) => console.error('Conversation error:', err),
   });
 
-  const getSignedUrl = async (): Promise<string> => {
-    const response = await fetch("/api/get-signed-url");
-    if (!response.ok) {
-      throw new Error(`Failed to get signed url: ${response.statusText}`);
-    }
-    const { signedUrl } = await response.json();
-    return signedUrl;
-  };
+  // Tick the on-screen timer while connected.
+  useEffect(() => {
+    if (startedAt === null) return;
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [startedAt]);
 
   const getSummary = async () => {
     try {
@@ -41,63 +84,63 @@ export function Conversation({ resumeText }: { resumeText: string }) {
     }
   };
 
-  const startConversation = useCallback(async () => {
+  const startConversation = async () => {
+    setError('');
+    setStarting(true);
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 1. Microphone first, so a missing mic never creates an interview record (D3).
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((track) => track.stop());
+      } catch (micError) {
+        setError(micErrorMessage(micError));
+        return;
+      }
 
       // Run agent configuration setup programmatically on start
       await getSummary();
 
-      const signedUrl = await getSignedUrl();
+      // 2. Server checks (one at a time, daily limit) and creates the interview.
+      const res = await fetch('/api/interviews', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Could not start the interview. Please try again.');
+        return;
+      }
+      interviewIdRef.current = data.interviewId;
 
-      await conversation.startSession({
-        signedUrl,
-        overrides: {
-          agent: {
-            prompt: {
-              prompt: `You are Marcus, interviewing this candidate. Here is their resume: ${resumeText}`
+      // 3. Connect to the interviewer.
+      try {
+        await conversation.startSession({
+          signedUrl: data.signedUrl,
+          overrides: {
+            agent: {
+              prompt: {
+                prompt: `You are Marcus, interviewing this candidate. Here is their resume: ${resumeText}`
+              },
+              firstMessage: `Hi! Let's start your interview for the SWE position.`
             },
-            firstMessage: `Hi! Let's start your interview for the SWE position.`
-          },
-        }
-      });
-
-    } catch (error) {
-      console.error('Failed to start conversation:', error);
+          }
+        });
+      } catch (connectError) {
+        console.error('Failed to start conversation:', connectError);
+        interviewIdRef.current = null;
+        setError('Could not connect to the interviewer. Please try again.');
+      }
+    } finally {
+      setStarting(false);
     }
-  }, [conversation, resumeText, getSummary]);
-
-  const saveTranscriptToDB = async () => {
-    const response = await fetch(`/api/get-transcript?conversationId=${conversationId}`,
-      {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-    if (!response.ok) {
-      throw new Error(`Failed to get transcript: ${response.statusText}`);
-    }
-
   };
 
+  const stopConversation = () => {
+    // onDisconnect (reason "user") records the ending and opens the result page.
+    conversation.endSession();
+  };
 
-  const stopConversation = useCallback(async () => {
-    try {
-      await conversation.endSession();
-
-      await saveTranscriptToDB();
-
-      router.push(`/dashboard/interview/${conversationId}/result`);
-    } catch (error) {
-      console.error("Failed to stop and retrieve transcript:", error);
-    }
-  }, [conversation, conversationId, router, saveTranscriptToDB]);
-
-
+  const elapsed = startedAt === null ? 0 : Math.min(MAX_SECONDS, (now - startedAt) / 1000);
 
   const isConnected = conversation.status === 'connected';
-  const isConnecting = conversation.status === 'connecting';
+  const isConnecting = starting || conversation.status === 'connecting';
   const aiSpeaking = isConnected && conversation.isSpeaking;
   const userSpeaking = isConnected && !conversation.isSpeaking;
 
@@ -200,6 +243,11 @@ export function Conversation({ resumeText }: { resumeText: string }) {
 
       {/* Control Buttons Panel */}
       <div className="flex flex-col items-center justify-center pt-6 border-t border-brand-light-primary/10 dark:border-brand-dark-primary/10 gap-3">
+        {isConnected && (
+          <p className="text-sm font-semibold tabular-nums text-gray-700 dark:text-gray-200" aria-label="Time used">
+            {formatClock(elapsed)} / {formatClock(MAX_SECONDS)}
+          </p>
+        )}
         {isConnected ? (
           <button
             onClick={stopConversation}
@@ -234,8 +282,16 @@ export function Conversation({ resumeText }: { resumeText: string }) {
             )}
           </button>
         )}
+        {error && (
+          <p role="alert" className="max-w-md text-center text-sm text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        )}
         <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest font-semibold">
           Status: {conversation.status}
+        </p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">
+          If your connection drops, everything said so far is saved.
         </p>
       </div>
     </div>

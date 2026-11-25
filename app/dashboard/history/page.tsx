@@ -1,7 +1,16 @@
 import dbConnect from "@/utils/dbConnection";
-import { Interview, AiFeedback } from "@/models/model";
+import Link from "next/link";
+import { Interview } from "@/models/model";
 import { getUserId } from "@/lib/auth";
+import { reconcileOpenInterviews } from "@/lib/interviews";
 import { redirect } from "next/navigation";
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: "Processing",
+  in_progress: "Processing",
+  abandoned: "Incomplete",
+  failed: "Did not connect",
+};
 
 export default async function HistoryPage() {
   const userId = await getUserId();
@@ -10,19 +19,11 @@ export default async function HistoryPage() {
   }
 
   await dbConnect();
-  
- 
-  const interviews = await Interview.find({ user: userId }).sort({ createdAt: -1 });
 
-  const interviewIds = interviews.map((i) => i._id);
-  const convIds = interviews.map((i) => i.conversationId).filter(Boolean);
-  
-  const feedbacks = await AiFeedback.find({
-    $or: [
-      { interviewId: { $in: interviewIds } },
-      { conversationId: { $in: convIds } }
-    ]
-  });
+  // Interviews left open by a closed tab are finished off here (D1).
+  await reconcileOpenInterviews(userId);
+
+  const interviews = await Interview.find({ user: userId }).sort({ createdAt: -1 });
 
   return (
     <div className="space-y-8 max-w-4xl mx-auto animate-fade-in">
@@ -46,15 +47,9 @@ export default async function HistoryPage() {
       ) : (
         <div className="space-y-6">
           {interviews.map((interview) => {
-            // Find feedback document matching this interview session
-            const feedbackDoc = feedbacks.find(
-              (f) => 
-                String(f.interviewId) === String(interview._id) || 
-                (f.conversationId && f.conversationId === interview.conversationId)
-            );
-            
-            const feedbackText = feedbackDoc?.aiFeedback || "";
+            const feedbackText = interview.feedback || "";
             const score = interview.score;
+            const statusLabel = interview.status ? STATUS_LABEL[interview.status] : undefined;
             
             // Parse transcript
             let dialogue = [];
@@ -80,15 +75,20 @@ export default async function HistoryPage() {
                 {/* Top session summary bar */}
                 <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-brand-light-primary/20 dark:border-brand-dark-primary/10">
                   <div className="space-y-0.5">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    <Link href={`/dashboard/interview/${interview._id}/result`} className="text-sm font-semibold text-gray-800 dark:text-gray-200 hover:underline">
                       Mock Interview Session
-                    </p>
+                    </Link>
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      {formattedDate} • ID: {interview.conversationId}
+                      {formattedDate}
                     </p>
                   </div>
                   
                   <div className="flex items-center gap-3">
+                    {statusLabel && (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                        {statusLabel}
+                      </span>
+                    )}
                     <span className="text-xs font-medium text-gray-400 dark:text-gray-500">Score:</span>
                     <span className={`px-4 py-1.5 rounded-full text-sm font-extrabold shadow-sm ${
                       score && score >= 8
@@ -97,7 +97,7 @@ export default async function HistoryPage() {
                         ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-400"
                         : "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400"
                     }`}>
-                      {score ? `${score} / 10` : "Pending"}
+                      {score ? `${score} / 10` : statusLabel ? "—" : "Pending"}
                     </span>
                   </div>
                 </div>
