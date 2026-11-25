@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId } from "@/lib/auth";
+import { env } from '@/lib/env';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,15 +10,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const agentId = process.env.ELEVENLABS_AGENT_ID || process.env.NEXT_PUBLIC_AGENT_ID;
-    const apiKey = process.env.ELEVENLABS_API_KEY || process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
-
-    if (!agentId || !apiKey) {
-      return NextResponse.json(
-        { error: "Agent ID or ElevenLabs API Key is missing in environment variables." },
-        { status: 500 }
-      );
-    }
+    const { ELEVENLABS_AGENT_ID: agentId, ELEVENLABS_API_KEY: apiKey } = env();
 
     // Call ElevenLabs to update the agent's data collection settings programmatically
     const response = await fetch(

@@ -1,33 +1,15 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import jwt from "jsonwebtoken";
+import { getUserSession } from "@/lib/auth";
 import dbConnect from "@/utils/dbConnection";
 import { Resume } from "@/models/model";
 import ResumesClient from "./resumesClient";
 
-const JWT_SECRET = process.env.JWT_SECRET || "interview-prep-ai-secret-default-key-98765";
-
-interface UserSession {
-  userId: string;
-  email: string;
-  username: string;
-}
-
 export default async function ResumesPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
-
-  if (!token) {
+  const session = await getUserSession();
+  if (!session) {
     redirect("/signin");
   }
-
-  let userId: string;
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as UserSession;
-    userId = decoded.userId;
-  } catch (err) {
-    redirect("/signin");
-  }
+  const userId = session.userId;
 
   // Connect to database and retrieve user's resume fileName (if any)
   let initialFileName: string | null = null;

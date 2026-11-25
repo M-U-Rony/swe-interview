@@ -1,28 +1,9 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import jwt from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "interview-prep-ai-secret-default-key-98765";
-
-interface UserSession {
-  userId: string;
-  email: string;
-  username: string;
-}
+import { getUserSession } from "@/lib/auth";
 
 export default async function DashboardPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
-
-  let username = "Developer";
-  if (token) {
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as UserSession;
-      username = decoded.username;
-    } catch (e) {
-      // Fallback username
-    }
-  }
+  const session = await getUserSession();
+  const username = session?.username ?? "Developer";
 
   return (
     <div className="space-y-8 animate-fade-in max-w-6xl mx-auto">

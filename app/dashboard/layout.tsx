@@ -1,16 +1,10 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import jwt from "jsonwebtoken";
+import { getUserSession, type UserSession } from "@/lib/auth";
 import dbConnect from "@/utils/dbConnection";
 import { Profile } from "@/models/model";
 import DashboardShell from "./dashboardShell";
 
-const JWT_SECRET = process.env.JWT_SECRET || "interview-prep-ai-secret-default-key-98765";
-
-export interface UserSession {
-  userId: string;
-  email: string;
-  username: string;
+export interface DashboardUser extends UserSession {
   fullName?: string;
   profileImage?: string | null;
 }
@@ -20,20 +14,11 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
-
-  if (!token) {
+  const session = await getUserSession();
+  if (!session) {
     redirect("/signin");
   }
-
-  let user: UserSession;
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    user = decoded as UserSession;
-  } catch (err) {
-    redirect("/signin");
-  }
+  const user: DashboardUser = { ...session };
 
   // Fetch profile to display actual image and name in navbar/sidebar
   try {

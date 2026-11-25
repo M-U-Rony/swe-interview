@@ -6,7 +6,7 @@ v1-এ শুধু ElevenLabs দিয়ে ইন্টারভিউ → �
 
 **অগ্রাধিকার:** 🔴 জরুরি · 🟠 গুরুত্বপূর্ণ · 🟡 পরে করলেও চলে
 
-**অগ্রগতি:** সিদ্ধান্ত 39 / 39 · implement 0 / 39
+**অগ্রগতি:** সিদ্ধান্ত 39 / 39 · implement 2 / 39
 
 ---
 
@@ -37,7 +37,7 @@ v1-এ শুধু ElevenLabs দিয়ে ইন্টারভিউ → �
 
 ## ৩. সিকিউরিটি
 
-- [x] **#20** 📝 D6 · 🔴 **JWT secret-এর ডিফল্ট মান কোডে লেখা** (`lib/auth.ts:4`, `app/api/signin/route.ts:48`, `app/dashboard/layout.tsx:8`)। env না থাকলে যে কেউ নকল টোকেন বানাতে পারবে। `app/dashboard/interview/start/page.tsx:25`-এ ডিফল্ট নেই — অসামঞ্জস্য।
+- [x] **#20** ✅ 📝 D6 · 🔴 **JWT secret-এর ডিফল্ট মান কোডে লেখা** (`lib/auth.ts:4`, `app/api/signin/route.ts:48`, `app/dashboard/layout.tsx:8`)। env না থাকলে যে কেউ নকল টোকেন বানাতে পারবে। `app/dashboard/interview/start/page.tsx:25`-এ ডিফল্ট নেই — অসামঞ্জস্য।
 - [x] **#21** 📝 D6 · 🔴 **রেজাল্ট পেজে লগইন / মালিকানা যাচাই নেই** (`result/page.tsx:12`)। `conversationId` জানলে অন্যের ট্রান্সক্রিপ্ট দেখা যায়; রেকর্ড না থাকলে `null.transcript`-এ ক্র্যাশ।
 - [x] **#22** 📝 D1 · 🔴 **`get-transcript`-এ মালিকানা যাচাই নেই।** অন্যের `conversationId` দিয়ে তার ইন্টারভিউ নিজের অ্যাকাউন্টে সেভ করা যায়।
 - [x] **#23** 📝 D2 + D6 · 🔴 **`get-signed-url` আর `get-summary`-তে লগইন লাগে না।** বাইরের যে কেউ ElevenLabs ক্রেডিট খরচ করাতে বা Gemini key-কে ফ্রি LLM হিসেবে ব্যবহার করতে পারে।
@@ -45,7 +45,7 @@ v1-এ শুধু ElevenLabs দিয়ে ইন্টারভিউ → �
 - [x] **#25** 📝 D8 · 🔴 **প্রোফাইল ছবিতে `.svg` দিয়ে stored XSS।** টাইপ/সাইজ যাচাই নেই, এক্সটেনশন ইউজারের নাম থেকে (`app/api/profile/route.ts:64`); SVG নিজের ডোমেইন থেকে `image/svg+xml` হিসেবে সার্ভ হয় (`app/api/uploads/[filename]/route.ts:23`)।
 - [x] **#26** 📝 D8 · 🟠 **`uploads/[filename]`-এ সম্ভবত path traversal।** `path.join(..., filename)`-এ যাচাই নেই, লগইনও লাগে না। (পরীক্ষা করে নিশ্চিত হতে হবে)
 - [x] **#27** 📝 D4 + D8 · 🟠 **PDF আপলোডে সাইজ / পৃষ্ঠার সীমা নেই।** MIME ক্লায়েন্টের দাবির উপর নির্ভর (`app/api/parse-pdf/route.ts:29`)। DoS ও প্রম্পট খরচের ঝুঁকি।
-- [x] **#28** 📝 D9 · 🟠 **API key-এর জন্য `NEXT_PUBLIC_*` fallback।** ক্লায়েন্ট বান্ডলে চলে যেতে পারে — সরাতে হবে।
+- [x] **#28** ✅ 📝 D9 · 🟠 **API key-এর জন্য `NEXT_PUBLIC_*` fallback।** ক্লায়েন্ট বান্ডলে চলে যেতে পারে — সরাতে হবে।
 - [x] **#29** 📝 D9 · 🟠 **লগইনে rate limit নেই (brute force)।** সাইনআপে পাসওয়ার্ড / username-এর সীমা নেই (`utils/zodSchemas.ts`)।
 - [x] **#30** 📝 D9 · 🟡 **এরর মেসেজ সরাসরি ক্লায়েন্টে যায়** (`error.message`, ElevenLabs `details`)।
 - [x] **#31** 📝 D9 · 🟡 **JWT ৭ দিন বৈধ, বাতিলের উপায় নেই।** সাইনআউট শুধু কুকি মোছে।

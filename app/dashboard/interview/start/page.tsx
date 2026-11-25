@@ -1,32 +1,16 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import jwt from "jsonwebtoken";
+import { getUserSession } from "@/lib/auth";
 import dbConnect from "@/utils/dbConnection";
 import { Resume } from "@/models/model";
 import InterviewStartClient from "./interviewStartClient";
 
 
-interface UserSession {
-  userId: string;
-  email: string;
-  username: string;
-}
-
 export default async function InterviewStartPage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
-
-  if (!token) {
+  const session = await getUserSession();
+  if (!session) {
     redirect("/signin");
   }
-
-  let userId: string;
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as UserSession;
-    userId = decoded.userId;
-  } catch (err) {
-    redirect("/signin");
-  }
+  const userId = session.userId;
 
   let resumeText = "";
   try {

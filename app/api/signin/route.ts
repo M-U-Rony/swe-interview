@@ -2,7 +2,7 @@ import { User } from "@/models/model";
 import dbConnect from "@/utils/dbConnection";
 import { signinSchema } from "@/utils/zodSchemas";
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
+import { signSession, SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "@/lib/auth";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 
@@ -41,21 +41,19 @@ export async function POST(req: NextRequest) {
             }, { status: 401 });
         }
 
-        const token = jwt.sign({
+        const token = signSession({
             userId: isUser._id.toString(),
             email: isUser.email,
             username: isUser.username,
-        }, process.env.JWT_SECRET || "interview-prep-ai-secret-default-key-98765", {
-            expiresIn: "7d"
         });
 
         const cookieStore = await cookies();
-        cookieStore.set("session", token, {
+        cookieStore.set(SESSION_COOKIE, token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "strict",
             path: "/",
-            maxAge: 60 * 60 * 24 * 7, // 1 week
+            maxAge: SESSION_MAX_AGE_SECONDS,
         });
 
         return NextResponse.json({

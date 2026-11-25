@@ -1,6 +1,7 @@
 import { Interview } from '@/models/model';
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth';
+import { env } from '@/lib/env';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
       `https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`,
       {
         headers: {
-          'xi-api-key': (process.env.ELEVENLABS_API_KEY || process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY)!,
+          'xi-api-key': env().ELEVENLABS_API_KEY,
         },
       }
     );

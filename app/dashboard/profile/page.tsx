@@ -1,35 +1,15 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import jwt from "jsonwebtoken";
+import { getUserSession } from "@/lib/auth";
 import dbConnect from "@/utils/dbConnection";
 import { Profile } from "@/models/model";
 import ProfileClient from "./profileClient";
 
-const JWT_SECRET = process.env.JWT_SECRET || "interview-prep-ai-secret-default-key-98765";
-
-interface UserSession {
-  userId: string;
-  email: string;
-  username: string;
-}
-
 export default async function ProfilePage() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("session")?.value;
-
-  if (!token) {
+  const session = await getUserSession();
+  if (!session) {
     redirect("/signin");
   }
-
-  let userId: string;
-  let username = "";
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as UserSession;
-    userId = decoded.userId;
-    username = decoded.username;
-  } catch (err) {
-    redirect("/signin");
-  }
+  const { userId, username } = session;
 
   // Load user profile details on server load (if any)
   let initialProfile: any = null;

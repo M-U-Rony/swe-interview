@@ -81,8 +81,7 @@ Fill in `.env.local`:
 
 ```env
 MONGODB_URL="mongodb://localhost:27017/swe-interview"
-JWT_SECRET="your-strong-secret"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+JWT_SECRET="at-least-32-characters"   # openssl rand -base64 32
 ELEVENLABS_API_KEY="your-elevenlabs-api-key"
 ELEVENLABS_AGENT_ID="your-elevenlabs-agent-id"
 GEMINI_API_KEY="your-gemini-api-key"
