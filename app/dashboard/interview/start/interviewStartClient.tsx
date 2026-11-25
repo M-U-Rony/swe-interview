@@ -3,11 +3,7 @@
 import { ConversationProvider } from "@elevenlabs/react";
 import { Conversation } from "@/components/conversation";
 
-interface InterviewStartClientProps {
-  resumeText: string;
-}
-
-export default function InterviewStartClient({ resumeText }: InterviewStartClientProps) {
+export default function InterviewStartClient() {
   return (
     <ConversationProvider>
       
@@ -22,7 +18,7 @@ export default function InterviewStartClient({ resumeText }: InterviewStartClien
         </div>
 
         <div className="w-full bg-white/50 dark:bg-brand-dark-bg/30 p-6 rounded-3xl border border-brand-light-secondary dark:border-brand-dark-primary/20 shadow-md">
-          <Conversation resumeText={resumeText} />
+          <Conversation />
         </div>
       </main>
     </ConversationProvider>

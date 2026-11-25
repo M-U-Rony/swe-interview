@@ -33,7 +33,7 @@ function sendEndReason(interviewId: string, endReason: string) {
   }).catch(() => undefined);
 }
 
-export function Conversation({ resumeText }: { resumeText: string }) {
+export function Conversation() {
   const router = useRouter();
   const interviewIdRef = useRef<string | null>(null);
   const [error, setError] = useState('');
@@ -71,19 +71,6 @@ export function Conversation({ resumeText }: { resumeText: string }) {
     return () => clearInterval(timer);
   }, [startedAt]);
 
-  const getSummary = async () => {
-    try {
-      const response = await fetch("/api/setup-agent", {
-        method: "POST",
-      });
-      if (!response.ok) {
-        console.error("Failed to run agent configuration setup");
-      }
-    } catch (err) {
-      console.error("Error calling setup-agent API:", err);
-    }
-  };
-
   const startConversation = async () => {
     setError('');
     setStarting(true);
@@ -97,9 +84,6 @@ export function Conversation({ resumeText }: { resumeText: string }) {
         return;
       }
 
-      // Run agent configuration setup programmatically on start
-      await getSummary();
-
       // 2. Server checks (one at a time, daily limit) and creates the interview.
       const res = await fetch('/api/interviews', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
@@ -111,16 +95,10 @@ export function Conversation({ resumeText }: { resumeText: string }) {
 
       // 3. Connect to the interviewer.
       try {
+        // The prompt lives on the agent (D4); we only send data.
         await conversation.startSession({
           signedUrl: data.signedUrl,
-          overrides: {
-            agent: {
-              prompt: {
-                prompt: `You are Marcus, interviewing this candidate. Here is their resume: ${resumeText}`
-              },
-              firstMessage: `Hi! Let's start your interview for the SWE position.`
-            },
-          }
+          dynamicVariables: data.dynamicVariables,
         });
       } catch (connectError) {
         console.error('Failed to start conversation:', connectError);

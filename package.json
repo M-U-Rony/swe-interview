@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "setup:agent": "node --env-file=.env.local scripts/setup-agent.mts"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.58.0",

@@ -13,6 +13,7 @@ export interface ElevenLabsConversation {
   status: "initiated" | "in-progress" | "processing" | "done" | "failed";
   dialogue: DialogueEntry[];
   durationSecs: number | null;
+  terminationReason: string | null;
 }
 
 function headers() {
@@ -55,5 +56,6 @@ export async function getConversation(conversationId: string): Promise<ElevenLab
     status: data.status,
     dialogue,
     durationSecs: typeof data.metadata?.call_duration_secs === "number" ? data.metadata.call_duration_secs : null,
+    terminationReason: typeof data.metadata?.termination_reason === "string" ? data.metadata.termination_reason : null,
   };
 }

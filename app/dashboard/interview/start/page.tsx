@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getUserSession } from "@/lib/auth";
 import dbConnect from "@/utils/dbConnection";
-import { Resume } from "@/models/model";
+import { Profile, Resume } from "@/models/model";
 import InterviewStartClient from "./interviewStartClient";
 
 
@@ -12,21 +12,18 @@ export default async function InterviewStartPage() {
   }
   const userId = session.userId;
 
-  let resumeText = "";
-  try {
-    await dbConnect();
-    const userResume = await Resume.findOne({ author: userId });
-    if (userResume) {
-      resumeText = userResume.rawText;
-    } else {
-      redirect("/dashboard/resumes");
-    }
-  } catch (error) {
-    console.error("Failed to query resume text:", error);
-    redirect("/dashboard/interview");
+  // D10: profile (role + level) and resume are both needed before an interview.
+  await dbConnect();
+  const [profile, hasResume] = await Promise.all([
+    Profile.findOne({ user: userId }),
+    Resume.exists({ author: userId }),
+  ]);
+  if (!profile?.targetRole || !profile?.experienceLevel) {
+    redirect("/dashboard/profile");
+  }
+  if (!hasResume) {
+    redirect("/dashboard/resumes");
   }
 
-  return (
-    <InterviewStartClient resumeText={resumeText} />
-  );
+  return <InterviewStartClient />;
 }

@@ -11,6 +11,9 @@ export const DAILY_INTERVIEW_LIMIT = 3;
 /** A `pending` interview that never got a conversationId within this time failed to connect (D1). */
 const CONNECT_TIMEOUT_MS = 10 * 60 * 1000;
 
+/** The sentence Marcus is told to say before ending a call over conduct (prompts/interviewer.md). */
+const CONDUCT_END_PHRASE = "ending this interview because of inappropriate language";
+
 const OPEN_STATUSES: InterviewStatus[] = ["pending", "in_progress"];
 
 export function isValidId(id: string): boolean {
@@ -50,8 +53,14 @@ export async function finalizeInterview(interviewId: string): Promise<void> {
   if (conversation.status !== "done" && conversation.status !== "failed") return;
 
   const answerCount = conversation.dialogue.filter((d) => d.role === "user").length;
-  const endReason: EndReason = interview.endReason ?? "unknown";
-  const endedNormally = endReason === "user" || endReason === "agent";
+  const lastAgentLine = [...conversation.dialogue].reverse().find((d) => d.role === "agent")?.message ?? "";
+
+  let endReason: EndReason = interview.endReason ?? "unknown";
+  if (lastAgentLine.toLowerCase().includes(CONDUCT_END_PHRASE)) endReason = "conduct";
+
+  // The agent also hangs up after ~60 s of silence (D3); that is not a proper ending.
+  const endedBySilence = /silence|inactiv/i.test(conversation.terminationReason ?? "");
+  const endedNormally = (endReason === "user" || endReason === "agent") && !endedBySilence;
   const completed = endedNormally && answerCount >= MIN_ANSWERS_FOR_SCORE;
 
   await Interview.updateOne(
@@ -63,6 +72,7 @@ export async function finalizeInterview(interviewId: string): Promise<void> {
         transcript: JSON.stringify(conversation.dialogue),
         answerCount,
         durationSecs: conversation.durationSecs ?? undefined,
+        terminationReason: conversation.terminationReason ?? undefined,
         ...(completed ? { "scoring.status": "pending" } : {}),
       },
     }

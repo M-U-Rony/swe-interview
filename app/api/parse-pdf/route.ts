@@ -5,6 +5,7 @@ import { PDFParse } from 'pdf-parse';
 import { Resume } from '@/models/model';
 import { NextResponse } from 'next/server';
 import { getUserId } from '@/lib/auth';
+import { cleanResumeText, findSuspiciousPhrases, MAX_RESUME_CHARS } from '@/lib/resume';
 
 export async function POST(req: Request) {
 
@@ -37,17 +38,30 @@ export async function POST(req: Request) {
 
   try {
     const result = await parser.getText();
+    const text = cleanResumeText(result.text);
+
+    if (text.length > MAX_RESUME_CHARS) {
+      return Response.json(
+        { error: `This resume is too long (${text.length} characters). Please keep it under ${MAX_RESUME_CHARS}.` },
+        { status: 400 }
+      );
+    }
 
     try {
-        const resume = await Resume.findOneAndUpdate({author: userId},
-            {$set: {rawText: result.text, fileName: file.name}}, 
+        await Resume.findOneAndUpdate({author: userId},
+            {$set: {rawText: text, fileName: file.name}},
             {new: true, upsert: true}
         )
-    } catch (error) {
+    } catch {
         return Response.json({ error: 'Failed to upload resume' }, { status: 500 });
     }
+
+    const suspicious = findSuspiciousPhrases(text);
     return Response.json({
-      text: result.text,
+      text,
+      warning: suspicious.length
+        ? `Your resume contains text that looks like instructions to an AI (${suspicious.join(", ")}). The interviewer will ignore it, but you may want to remove it.`
+        : null,
     });
   } catch (err) {
     console.error('PDF parse error:', err);

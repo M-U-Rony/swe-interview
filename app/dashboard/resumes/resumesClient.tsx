@@ -14,6 +14,7 @@ export default function ResumesClient({ initialFileName }: ResumesClientProps) {
   const [currentFileName, setCurrentFileName] = useState<string | null>(initialFileName);
   const [error, setError] = useState<string>( "");
   const [success, setSuccess] = useState<string>("");
+  const [warning, setWarning] = useState<string>("");
   const [parsingStep, setParsingStep] = useState<string>("Uploading file...");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,6 +76,7 @@ export default function ResumesClient({ initialFileName }: ResumesClientProps) {
     setLoading(true);
     setError("");
     setSuccess("");
+    setWarning("");
     
     // Simulate premium parsing steps
     setParsingStep("Uploading PDF file to secure parser...");
@@ -94,6 +96,7 @@ export default function ResumesClient({ initialFileName }: ResumesClientProps) {
       }
 
       setSuccess("Resume successfully parsed and uploaded!");
+      setWarning(data.warning || "");
       setCurrentFileName(file.name);
       setFile(null);
 
@@ -121,6 +124,12 @@ export default function ResumesClient({ initialFileName }: ResumesClientProps) {
             {success && (
               <div className="p-4 text-xs font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 dark:text-emerald-400 rounded-2xl border border-emerald-200 dark:border-emerald-900/30">
                 {success}
+              </div>
+            )}
+
+            {warning && (
+              <div role="alert" className="p-4 text-xs font-semibold text-amber-800 bg-amber-50 dark:bg-amber-950/20 dark:text-amber-300 rounded-2xl border border-amber-200 dark:border-amber-900/30">
+                {warning}
               </div>
             )}
 
