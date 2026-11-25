@@ -204,3 +204,41 @@ ElevenLabs প্রতিটা কল আর তার ট্রান্স�
 - প্রম্পট ফাইল (D4-এর) — অফ-টপিক / গালাগালি / ভাষার নির্দেশ
 - এজেন্ট সেটআপ স্ক্রিপ্ট — মূল্যায়ন সেটিং বাদ, ভাষা ইংরেজি; কল শেষ করার ক্ষমতা (end call tool) চালু থাকা নিশ্চিত করা
 - রেজাল্ট পেজ — manipulation সতর্কতা, `conduct` কারণ
+
+---
+
+## D6 — লগইন ও অ্যাক্সেস
+
+**সমাধান করে:** #20, #21, #23 (বাকি অর্ধেক), #32
+**অবস্থা:** সিদ্ধান্ত চূড়ান্ত · implement বাকি
+**নির্ভর করে:** D1 (`interviewId`, `POST /api/interviews`), D3 (দৈনিক সীমা)
+
+### #20 — JWT secret
+
+- কোড থেকে ডিফল্ট মান পুরো সরানো। `JWT_SECRET` না থাকলে বা ৩২ অক্ষরের কম হলে অ্যাপ চালু হওয়ার সময়ই পরিষ্কার এরর দিয়ে থামবে।
+- JWT-র সব কাজ শুধু `lib/auth.ts`-এ। `app/api/signin/route.ts`, `app/dashboard/layout.tsx`, `app/dashboard/interview/start/page.tsx` সবাই এটাই ব্যবহার করবে।
+- `.env.example`-এ secret বানানোর নির্দেশ: `openssl rand -base64 32`।
+
+### #21 — রেজাল্ট পেজে মালিকানা যাচাই
+
+- খোঁজা হবে `{ _id: interviewId, user: লগইন করা ইউজার }` দিয়ে। অন্যের বা না-থাকা ইন্টারভিউ → **404** (403 নয়, যাতে অস্তিত্ব ফাঁস না হয়)।
+- URL: `/dashboard/interview/[interviewId]/result` (`conversationId` আর বাইরে দেখানো হবে না)। পুরনো লিংক কাজ করবে না — লোকাল প্রজেক্টে সমস্যা নেই।
+
+### #23 (বাকি অর্ধেক) — signed URL
+
+- `/api/get-signed-url` রুট সরানো হবে। D1-এর `POST /api/interviews` ইন্টারভিউ তৈরির সাথে signed URL ফেরত দেবে।
+- ফলে লগইন + একসাথে একটা ইন্টারভিউ + দিনে ৩টা (D3) পার না হলে ElevenLabs-এ কানেক্ট করা যাবে না।
+
+### #32 — কেন্দ্রীয় পাহারা
+
+- লগইন না থাকলে `/dashboard/*` → সাইন-ইন পেজ, `/api/*` → 401 (সাইন-ইন / সাইন-আপ রুট বাদে)।
+- Next.js 16-এ `middleware`-এর নাম `proxy` হয়েছে বলে জানা — implement-এর আগে `node_modules/next/dist/docs/` দেখে নিশ্চিত করতে হবে।
+- **প্রতিটা রুটে নিজস্ব যাচাইও থাকবে।** কেন্দ্রীয় পাহারা প্রথম স্তর, শেষ নয়; মালিকানা যাচাই রুটের ভেতরেই।
+
+### যা বদলাবে
+
+- `lib/auth.ts`, `app/api/signin/route.ts`, `app/dashboard/layout.tsx`, `app/dashboard/interview/start/page.tsx`
+- `app/dashboard/interview/[id]/result/` → `[interviewId]`
+- `app/api/get-signed-url/route.ts` — সরানো
+- নতুন `proxy.ts` (বা Next.js 16-এ যে নাম)
+- `.env.example`
