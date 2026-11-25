@@ -317,3 +317,50 @@ ElevenLabs প্রতিটা কল আর তার ট্রান্স�
 - `app/api/uploads/[filename]/route.ts` — নামের নিয়ম, path যাচাই, লগইন, হেডার
 - `app/api/parse-pdf/route.ts` — সাইজ, magic bytes, পৃষ্ঠা সীমা, এরর মেসেজ
 - প্রোফাইল ও রেজিউমে আপলোড UI — `accept` অ্যাট্রিবিউট ও এরর মেসেজ
+
+---
+
+## D9 — কনফিগ, লগইন সুরক্ষা ও এরর
+
+**সমাধান করে:** #28, #29, #30, #31
+**অবস্থা:** সিদ্ধান্ত চূড়ান্ত · implement বাকি
+**নির্ভর করে:** D6 (`lib/auth.ts`, `JWT_SECRET` যাচাই)
+
+### #28 — `NEXT_PUBLIC_*` fallback
+
+- সব API key-এর `NEXT_PUBLIC_*` fallback সরানো।
+- নতুন `lib/env.ts`: `MONGODB_URL`, `JWT_SECRET`, `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `GEMINI_API_KEY` zod দিয়ে যাচাই; না থাকলে চালু হওয়ার সময়ই পরিষ্কার এরর। (`utils/dbConnection.ts`-এর চুপচাপ ফিরে যাওয়াও ঠিক হবে।)
+- `lib/env.ts`-এ `import "server-only"` — ব্রাউজার কম্পোনেন্টে import করলে build ফেল।
+
+### #29 — rate limit ও সাইনআপের নিয়ম
+
+- **rate limit MongoDB-তে** (ছোট collection + TTL index)।
+  - সাইন-ইন: একই ইমেইলে ১৫ মিনিটে ৫ বার ভুল → ১৫ মিনিট লক; একই IP-র জন্য আলাদা সীমা।
+  - সাইন-আপ: একই IP থেকে ঘণ্টায় ৩টা অ্যাকাউন্ট।
+- `utils/zodSchemas.ts`:
+  - পাসওয়ার্ড ৮–৭২ অক্ষর (bcrypt ৭২ বাইটের পরে বাদ দেয়)।
+  - username ৩–৩০ অক্ষর, শুধু অক্ষর / সংখ্যা / `_`।
+  - ইমেইল lowercase + trim।
+- সাইনআপের "এই ইমেইলে অ্যাকাউন্ট আছে" মেসেজ **যেমন আছে তেমন থাকবে** (ইমেইল যাচাই ব্যবস্থা নেই; rate limit ঝুঁকি কমায়)।
+
+### #30 — এরর মেসেজ
+
+- `apiError()` helper: ব্রাউজার পাবে সাধারণ মেসেজ + এরর কোড (যেমন `"SCORING_FAILED"`); বিস্তারিত শুধু সার্ভার লগে।
+- `error.message` / ElevenLabs `details` আর ব্রাউজারে যাবে না।
+- ইউজারের ইনপুট-সংক্রান্ত zod মেসেজ ব্রাউজারে যাবে।
+
+### #31 — JWT বাতিল
+
+- **`tokenVersion`:** `User`-এ একটা সংখ্যা, JWT-তেও থাকবে; প্রতিটা যাচাইয়ে মেলানো হবে (`lib/auth.ts`-এ)।
+- সাইনআউটে `tokenVersion` ১ বাড়বে → **সব ডিভাইস থেকে লগআউট।**
+- টোকেনের মেয়াদ **৭ দিনই থাকবে।**
+- `GET /api/signout` সরানো, শুধু `POST` (লিংক দিয়ে জোর করে লগআউট ঠেকাতে)।
+
+### যা বদলাবে
+
+- নতুন `lib/env.ts`, `lib/rateLimit.ts`, `lib/apiError.ts` (বা অনুরূপ)
+- `models/model.ts` — `User.tokenVersion`, rate limit মডেল
+- `lib/auth.ts`, `app/api/signin/route.ts`, `app/api/signup/route.ts`, `app/api/signout/route.ts`
+- `utils/zodSchemas.ts`, `utils/dbConnection.ts`
+- এরর ফেরত দেওয়া সব API রুট
+- সাইনআউট বাটন / পেজ যদি GET ব্যবহার করে, সেটা POST-এ
